@@ -14,6 +14,13 @@ const (
 	setMesk  = 1<<setBits - 1
 )
 
+// New return a set with items args.
+func New(args ...uint32) *IntSet {
+	var s IntSet
+	s.Adds(args...)
+	return &s
+}
+
 // IntSet is a set of non-negative integers.
 // Its zero value represents the empty set.
 //
