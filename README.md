@@ -21,18 +21,50 @@ set是一个无序且不重复的元素集合。
 
 设定有两个集合 `S` 和 `T` 。
 
-### 交集
+1. Intersect 交集`P`: 属于`S`并且属于`T`的元素为元素的集合:`P = S∩T` 。
+2. Union 并集`P`: 属于`S`或属于`T`的元素为元素的集合:`P = S∪T` 。
+3. Difference 差集`P`: 属于`S`并且不属于`T`的元素为元素的集合:`P = S-T` 。
+4. Complement 补集`P`: 属于`S`并且不属于`T`和不属于`S`并且属于`T`的元素为元素的集合:`P = (S∩T')∪(S'∩T)` 。
 
-Intersect 交集 `P` 属于 `S` 或属于 `T` 的元素为元素的集合: `P = S∩T` 。
+## Usage
 
-### 并集
+###  Install
 
-Union 并集 `P` 属于 `S` 并且属于 `T` 的元素为元素的集合: `P = S∪T` 。
+~~~bash
+go get github.com/min1324/set
+~~~
 
-### 差集
+### Example
 
-Difference 差集 `P` 属于 `S` 并且不属于 `T` 的元素为元素的集合: `P = S-T` 。
+~~~go
+package main
 
-### 补集
+import (
+	"fmt"
+    
+	"github.com/min1324/set"
+)
 
-Complement 补集 `P` 属于 `S` 并且不属于 `T` 和不属于 `S` 并且属于 `T` 的元素为元素的集合: `P = S∩T' ∪ S'∩T` 。
+func main() {
+	var s, p set.IntSet
+	s.Adds(1, 2, 3, 4, 5, 6)
+	p.Adds(4, 5, 6, 7, 8, 9)
+	fmt.Printf("S:%v\n", s.String())
+	fmt.Printf("P:%v\n", p.String())
+
+	fmt.Printf("Equal:%v\n", set.Equal(&s, &p))
+	fmt.Printf("Union:%v\n", set.Union(&s, &p))
+	fmt.Printf("Intersect:%v\n", set.Intersect(&s, &p))
+	fmt.Printf("Difference:%v\n", set.Difference(&s, &p))
+	fmt.Printf("Complement:%v\n", set.Complement(&s, &p))
+}
+// the result is:
+S:{1 2 3 4 5 6}
+P:{4 5 6 7 8 9}
+Equal:false
+Union:{1 2 3 4 5 6 7 8 9}
+Intersect:{4 5 6}
+Difference:{1 2 3}
+Complement:{1 2 3 7 8 9}
+~~~
+
