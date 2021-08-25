@@ -3,8 +3,11 @@ package set_test
 import (
 	"math/rand"
 	"reflect"
+	"runtime"
+	"sync"
 	"testing"
 	"testing/quick"
+	"time"
 
 	"github.com/min1324/set"
 )
@@ -13,8 +16,16 @@ type mapOp string
 
 const (
 	opLoad          = mapOp("Load")
+	opStore         = mapOp("Store")
+	opDelete        = mapOp("Delete")
 	opLoadOrStore   = mapOp("LoadOrStore")
 	opLoadAndDelete = mapOp("LoadAndDelete")
+	opRange         = mapOp("Range")
+	opLen           = mapOp("Len")
+	opClear         = mapOp("Clear")
+	opCopy          = mapOp("Copy")
+	opNull          = mapOp("Null")
+	opItems         = mapOp("Items")
 )
 
 var mapOps = [...]mapOp{opLoad, opLoadOrStore, opLoadAndDelete}
@@ -327,4 +338,72 @@ func TestComplement(t *testing.T) {
 		t.Logf("Q:%v", l.Items())
 		t.Fatalf("Complement err")
 	}
+}
+
+var raceOps = [...]mapOp{
+	opLoad,
+	opStore,
+	opDelete,
+	opLoadOrStore,
+	opLoadAndDelete,
+	opRange,
+	opLen,
+	opClear,
+	opCopy,
+	opNull,
+	opItems,
+}
+
+func (c mapCall) call(s *set.IntSet) {
+	switch c.op {
+	case opLoad:
+		s.Load(c.k)
+	case opStore:
+		s.Store(c.k)
+	case opDelete:
+		s.Delete(c.k)
+	case opLoadOrStore:
+		s.LoadOrStore(c.k)
+	case opLoadAndDelete:
+		s.LoadAndDelete(c.k)
+	case opRange:
+		s.Range(func(x uint32) bool { return true })
+	case opLen:
+		s.Len()
+	case opClear:
+		s.Clear()
+	case opCopy:
+		s.Copy()
+	case opNull:
+		s.Null()
+	case opItems:
+		s.Items()
+	default:
+		panic("invalid mapOp")
+	}
+}
+
+func generate(r *rand.Rand) *mapCall {
+	return &mapCall{op: mapOps[rand.Intn(len(mapOps))], k: randValue(r)}
+}
+
+func call(s *set.IntSet, call *mapCall) {
+	call.apply(s)
+}
+
+func TestRace(t *testing.T) {
+	var goNum = runtime.NumCPU()
+	var wg sync.WaitGroup
+	var s set.IntSet
+	var r = rand.New(rand.NewSource(time.Now().Unix()))
+	wg.Add(goNum)
+	for i := 0; i < goNum; i++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 1000; i++ {
+				call(&s, generate(r))
+			}
+		}()
+	}
+	wg.Done()
 }
