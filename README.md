@@ -1,5 +1,8 @@
 # Set
 
+[![Build Status](https://travis-ci.com/min1324/set.svg?branch=main)](https://travis-ci.com/min1324/set) [![codecov](https://codecov.io/gh/min1324/set/branch/main/graph/badge.svg)](https://codecov.io/gh/min1324/set) [![Go Report Card](https://goreportcard.com/badge/github.com/min1324/set)](https://goreportcard.com/report/github.com/min1324/set) [![GoDoc](https://godoc.org/github.com/min1324/set?status.png)](https://godoc.org/github.com/min1324/set) 
+
+-----
 ## 定义
 
 set是一个无序且不重复的元素集合。
