@@ -79,7 +79,7 @@ func applyCalls(m setInterface, calls []setCall) (results []setResult, final map
 }
 
 func applySet(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(new(set.IntSet), calls)
+	return applyCalls(set.New(), calls)
 }
 
 func applyMutex(calls []setCall) ([]setResult, map[interface{}]interface{}) {
