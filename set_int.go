@@ -223,7 +223,7 @@ func (s *IntSet) Null() bool {
 func (s *IntSet) Items() []uint32 {
 	sum := 0
 	sNum := atomic.LoadUint32(&s.num)
-	array := make([]uint32, sNum*platform)
+	array := make([]uint32, 0, sNum*platform)
 	s.Range(func(x uint32) bool {
 		array = append(array, x)
 		sum += 1

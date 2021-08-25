@@ -21,13 +21,14 @@ func Union(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	maxLen, minLen := maxmin(sLen, tLen)
+	p.num = uint32(maxLen)
 	p.items = make([]uint32, maxLen)
 
 	// [0-minLen]
 	for i := 0; i < minLen; i++ {
 		p.items[i] = s.items[i] | t.items[i]
-	}
 
+	}
 	// [minLen-maxLen]
 	if sLen < tLen {
 		for i := minLen; i < maxLen; i++ {
@@ -49,6 +50,7 @@ func Intersect(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	minLen := min(sLen, tLen)
+	p.num = uint32(minLen)
 	p.items = make([]uint32, minLen)
 
 	for i := 0; i < minLen; i++ {
@@ -65,6 +67,7 @@ func Difference(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	minLen := min(sLen, tLen)
+	p.num = uint32(sLen)
 	p.items = make([]uint32, sLen)
 
 	for i := 0; i < minLen; i++ {
@@ -86,6 +89,7 @@ func Complement(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	maxLen, minLen := maxmin(sLen, tLen)
+	p.num = uint32(maxLen)
 	p.items = make([]uint32, maxLen)
 
 	for i := 0; i < minLen; i++ {
