@@ -3,12 +3,12 @@ package set
 // Equal return set if equal, s <==> t
 // time complexity: O(N/32)
 func Equal(s, t *IntSet) bool {
-	sLen, tLen := len(s.dirty), len(t.dirty)
+	sLen, tLen := len(s.items), len(t.items)
 	if sLen != tLen {
 		return false
 	}
 	for i := 0; i < sLen; i++ {
-		if s.dirty[i] != t.dirty[i] {
+		if s.items[i] != t.items[i] {
 			return false
 		}
 	}
@@ -19,23 +19,23 @@ func Equal(s, t *IntSet) bool {
 // time complexity: O(N/32)
 func Union(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.dirty), len(t.dirty)
+	sLen, tLen := len(s.items), len(t.items)
 	maxLen, minLen := maxmin(sLen, tLen)
-	p.dirty = make([]uint32, maxLen)
+	p.items = make([]uint32, maxLen)
 
 	// [0-minLen]
 	for i := 0; i < minLen; i++ {
-		p.dirty[i] = s.dirty[i] | t.dirty[i]
+		p.items[i] = s.items[i] | t.items[i]
 	}
 
 	// [minLen-maxLen]
 	if sLen < tLen {
 		for i := minLen; i < maxLen; i++ {
-			p.dirty[i] = t.dirty[i]
+			p.items[i] = t.items[i]
 		}
 	} else {
 		for i := minLen; i < maxLen; i++ {
-			p.dirty[i] = s.dirty[i]
+			p.items[i] = s.items[i]
 		}
 	}
 
@@ -47,12 +47,12 @@ func Union(s, t *IntSet) *IntSet {
 // time complexity: O(N/32)
 func Intersect(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.dirty), len(t.dirty)
+	sLen, tLen := len(s.items), len(t.items)
 	minLen := min(sLen, tLen)
-	p.dirty = make([]uint32, minLen)
+	p.items = make([]uint32, minLen)
 
 	for i := 0; i < minLen; i++ {
-		p.dirty[i] = s.dirty[i] & t.dirty[i]
+		p.items[i] = s.items[i] & t.items[i]
 	}
 
 	return &p
@@ -63,16 +63,16 @@ func Intersect(s, t *IntSet) *IntSet {
 // time complexity: O(N/32)
 func Difference(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.dirty), len(t.dirty)
+	sLen, tLen := len(s.items), len(t.items)
 	minLen := min(sLen, tLen)
-	p.dirty = make([]uint32, sLen)
+	p.items = make([]uint32, sLen)
 
 	for i := 0; i < minLen; i++ {
-		p.dirty[i] = s.dirty[i] &^ t.dirty[i]
+		p.items[i] = s.items[i] &^ t.items[i]
 	}
 	if sLen > tLen {
 		for i := minLen; i < sLen; i++ {
-			p.dirty[i] = s.dirty[i]
+			p.items[i] = s.items[i]
 		}
 	}
 
@@ -84,18 +84,18 @@ func Difference(s, t *IntSet) *IntSet {
 // time complexity: O(N/32)
 func Complement(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.dirty), len(t.dirty)
+	sLen, tLen := len(s.items), len(t.items)
 	maxLen, minLen := maxmin(sLen, tLen)
-	p.dirty = make([]uint32, maxLen)
+	p.items = make([]uint32, maxLen)
 
 	for i := 0; i < minLen; i++ {
-		p.dirty[i] = s.dirty[i] ^ t.dirty[i]
+		p.items[i] = s.items[i] ^ t.items[i]
 	}
 	for i := minLen; i < maxLen; i++ {
 		if sLen > tLen {
-			p.dirty[i] = s.dirty[i]
+			p.items[i] = s.items[i]
 		} else {
-			p.dirty[i] = t.dirty[i]
+			p.items[i] = t.items[i]
 		}
 	}
 
