@@ -387,8 +387,8 @@ func generate(r *rand.Rand) *mapCall {
 	return &mapCall{op: mapOps[rand.Intn(len(mapOps))], k: randValue(r)}
 }
 
-func call(s *set.IntSet, call *mapCall) {
-	call.apply(s)
+func call(s *set.IntSet, c *mapCall) {
+	c.call(s)
 }
 
 func TestRace(t *testing.T) {
