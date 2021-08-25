@@ -163,7 +163,11 @@ func TestNull(t *testing.T) {
 	}
 	s.Adds(1, 2, 3)
 	if s.Null() {
-		t.Fatalf("after adds Null not false")
+		t.Fatalf("Adds not Null err")
+	}
+	s.Removes(1, 2, 3)
+	if !s.Null() {
+		t.Fatalf("Removes not Null err")
 	}
 }
 
@@ -231,6 +235,16 @@ func TestUnion(t *testing.T) {
 		t.Logf("Q:%v", q.Items())
 		t.Fatalf("Union err")
 	}
+	k := initSet(10)
+	j := initSetR(10, 36)
+	l := set.Union(j, k)
+	if !set.Equal(p, l) {
+		t.Logf("S:%v", j.Items())
+		t.Logf("R:%v", k.Items())
+		t.Logf("P:%v", p.Items())
+		t.Logf("Q:%v", l.Items())
+		t.Fatalf("Union err")
+	}
 }
 
 func TestIntersect(t *testing.T) {
@@ -245,6 +259,17 @@ func TestIntersect(t *testing.T) {
 		t.Logf("R:%v", r.Items())
 		t.Logf("P:%v", p.Items())
 		t.Logf("Q:%v", q.Items())
+		t.Fatalf("Intersect err")
+	}
+
+	k := initSet(20)
+	j := initSetR(10, 36)
+	l := set.Intersect(j, k)
+	if !set.Equal(p, l) {
+		t.Logf("S:%v", j.Items())
+		t.Logf("R:%v", k.Items())
+		t.Logf("P:%v", p.Items())
+		t.Logf("Q:%v", l.Items())
 		t.Fatalf("Intersect err")
 	}
 }
@@ -263,6 +288,18 @@ func TestDifference(t *testing.T) {
 		t.Logf("Q:%v", q.Items())
 		t.Fatalf("Difference err")
 	}
+
+	k := initSet(20)
+	j := initSetR(10, 36)
+	h := initSetR(20, 36)
+	l := set.Difference(j, k)
+	if !set.Equal(h, l) {
+		t.Logf("S:%v", j.Items())
+		t.Logf("R:%v", k.Items())
+		t.Logf("P:%v", h.Items())
+		t.Logf("Q:%v", l.Items())
+		t.Fatalf("Difference err")
+	}
 }
 
 func TestComplement(t *testing.T) {
@@ -277,6 +314,17 @@ func TestComplement(t *testing.T) {
 		t.Logf("R:%v", r.Items())
 		t.Logf("P:%v", p.Items())
 		t.Logf("Q:%v", q.Items())
+		t.Fatalf("Complement err")
+	}
+
+	k := initSet(20)
+	j := initSetR(10, 36)
+	l := set.Complement(j, k)
+	if !set.Equal(p, l) {
+		t.Logf("S:%v", j.Items())
+		t.Logf("R:%v", k.Items())
+		t.Logf("P:%v", p.Items())
+		t.Logf("Q:%v", l.Items())
 		t.Fatalf("Complement err")
 	}
 }
