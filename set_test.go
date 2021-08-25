@@ -12,31 +12,31 @@ import (
 	"github.com/min1324/set"
 )
 
-type mapOp string
+type setOp string
 
 const (
-	opLoad          = mapOp("Load")
-	opStore         = mapOp("Store")
-	opDelete        = mapOp("Delete")
-	opLoadOrStore   = mapOp("LoadOrStore")
-	opLoadAndDelete = mapOp("LoadAndDelete")
-	opRange         = mapOp("Range")
-	opLen           = mapOp("Len")
-	opClear         = mapOp("Clear")
-	opCopy          = mapOp("Copy")
-	opNull          = mapOp("Null")
-	opItems         = mapOp("Items")
+	opLoad          = setOp("Load")
+	opStore         = setOp("Store")
+	opDelete        = setOp("Delete")
+	opLoadOrStore   = setOp("LoadOrStore")
+	opLoadAndDelete = setOp("LoadAndDelete")
+	opRange         = setOp("Range")
+	opLen           = setOp("Len")
+	opClear         = setOp("Clear")
+	opCopy          = setOp("Copy")
+	opNull          = setOp("Null")
+	opItems         = setOp("Items")
 )
 
-var mapOps = [...]mapOp{opLoad, opLoadOrStore, opLoadAndDelete}
+var setOps = [...]setOp{opLoad, opLoadOrStore, opLoadAndDelete}
 
-// mapCall is a quick.Generator for calls on mapInterface.
-type mapCall struct {
-	op mapOp
+// setCall is a quick.Generator for calls on mapInterface.
+type setCall struct {
+	op setOp
 	k  uint32
 }
 
-func (c mapCall) apply(m setInterface) (uint32, bool) {
+func (c setCall) apply(m setInterface) (uint32, bool) {
 	switch c.op {
 	case opLoad:
 		return c.k, m.Load(c.k)
@@ -49,7 +49,7 @@ func (c mapCall) apply(m setInterface) (uint32, bool) {
 	}
 }
 
-type mapResult struct {
+type setResult struct {
 	value uint32
 	ok    bool
 }
@@ -58,15 +58,15 @@ func randValue(r *rand.Rand) uint32 {
 	return uint32(rand.Int31n(32 * 5))
 }
 
-func (mapCall) Generate(r *rand.Rand, size int) reflect.Value {
-	c := mapCall{op: mapOps[rand.Intn(len(mapOps))], k: randValue(r)}
+func (setCall) Generate(r *rand.Rand, size int) reflect.Value {
+	c := setCall{op: setOps[rand.Intn(len(setOps))], k: randValue(r)}
 	return reflect.ValueOf(c)
 }
 
-func applyCalls(m setInterface, calls []mapCall) (results []mapResult, final map[interface{}]interface{}) {
+func applyCalls(m setInterface, calls []setCall) (results []setResult, final map[interface{}]interface{}) {
 	for _, c := range calls {
 		v, ok := c.apply(m)
-		results = append(results, mapResult{v, ok})
+		results = append(results, setResult{v, ok})
 	}
 
 	final = make(map[interface{}]interface{})
@@ -78,11 +78,11 @@ func applyCalls(m setInterface, calls []mapCall) (results []mapResult, final map
 	return results, final
 }
 
-func applySet(calls []mapCall) ([]mapResult, map[interface{}]interface{}) {
+func applySet(calls []setCall) ([]setResult, map[interface{}]interface{}) {
 	return applyCalls(new(set.IntSet), calls)
 }
 
-func applyMutex(calls []mapCall) ([]mapResult, map[interface{}]interface{}) {
+func applyMutex(calls []setCall) ([]setResult, map[interface{}]interface{}) {
 	return applyCalls(new(MutexSet), calls)
 }
 
@@ -340,7 +340,7 @@ func TestComplement(t *testing.T) {
 	}
 }
 
-var raceOps = [...]mapOp{
+var raceOps = [...]setOp{
 	opLoad,
 	opStore,
 	opDelete,
@@ -354,7 +354,7 @@ var raceOps = [...]mapOp{
 	opItems,
 }
 
-func (c mapCall) call(s *set.IntSet) {
+func (c setCall) raceCall(s *set.IntSet) {
 	switch c.op {
 	case opLoad:
 		s.Load(c.k)
@@ -383,12 +383,8 @@ func (c mapCall) call(s *set.IntSet) {
 	}
 }
 
-func generate(r *rand.Rand) *mapCall {
-	return &mapCall{op: mapOps[rand.Intn(len(mapOps))], k: randValue(r)}
-}
-
-func call(s *set.IntSet, c *mapCall) {
-	c.call(s)
+func generate(r *rand.Rand) *setCall {
+	return &setCall{op: setOps[rand.Intn(len(setOps))], k: randValue(r)}
 }
 
 func TestRace(t *testing.T) {
@@ -401,7 +397,7 @@ func TestRace(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 100000; i++ {
-				call(&s, generate(r))
+				generate(r).raceCall(&s)
 			}
 		}()
 	}
