@@ -400,7 +400,7 @@ func TestRace(t *testing.T) {
 	for i := 0; i < goNum; i++ {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < 1000; i++ {
+			for i := 0; i < 100000; i++ {
 				call(&s, generate(r))
 			}
 		}()

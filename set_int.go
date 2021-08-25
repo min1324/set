@@ -24,6 +24,8 @@ const (
 type IntSet struct {
 	mu sync.Mutex
 
+	count uint32
+
 	// only increase
 	items []uint32
 }
@@ -40,7 +42,7 @@ func idxMod(x uint32) (idx, mod uint32) {
 }
 
 func (s *IntSet) num() int {
-	return len(s.items)
+	return int(atomic.LoadUint32(&s.count))
 }
 
 // Load reports whether the set contains the non-negative value x.
@@ -74,6 +76,7 @@ func (s *IntSet) LoadOrStore(x uint32) (loaded bool) {
 				break
 			}
 			s.items = append(s.items, 0)
+			atomic.AddUint32(&s.count, 1)
 		}
 		s.mu.Unlock()
 	}
