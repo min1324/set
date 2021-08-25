@@ -1,7 +1,8 @@
 package set
 
 // Equal return set if equal, s <==> t
-// time complexity: O(N/32)
+// worst time complexity: O(N)
+// best  time complexity: O(1)
 func Equal(s, t *IntSet) bool {
 	sLen, tLen := len(s.items), len(t.items)
 	if sLen != tLen {
@@ -16,12 +17,12 @@ func Equal(s, t *IntSet) bool {
 }
 
 // Union return the union set of s and t.
-// time complexity: O(N/32)
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
 func Union(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	maxLen, minLen := maxmin(sLen, tLen)
-	p.num = uint32(maxLen)
 	p.items = make([]uint32, maxLen)
 
 	// [0-minLen]
@@ -45,12 +46,12 @@ func Union(s, t *IntSet) *IntSet {
 
 // Intersect return the intersection set of s and t
 // item in s and t
-// time complexity: O(N/32)
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
 func Intersect(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	minLen := min(sLen, tLen)
-	p.num = uint32(minLen)
 	p.items = make([]uint32, minLen)
 
 	for i := 0; i < minLen; i++ {
@@ -62,12 +63,12 @@ func Intersect(s, t *IntSet) *IntSet {
 
 // Difference return the difference set of s and t
 // item in s and not in t
-// time complexity: O(N/32)
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
 func Difference(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	minLen := min(sLen, tLen)
-	p.num = uint32(sLen)
 	p.items = make([]uint32, sLen)
 
 	for i := 0; i < minLen; i++ {
@@ -84,12 +85,12 @@ func Difference(s, t *IntSet) *IntSet {
 
 // Complement return the complement set of s and t
 // item in s but not in t, and not in s but in t.
-// time complexity: O(N/32)
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
 func Complement(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.items), len(t.items)
 	maxLen, minLen := maxmin(sLen, tLen)
-	p.num = uint32(maxLen)
 	p.items = make([]uint32, maxLen)
 
 	for i := 0; i < minLen; i++ {
