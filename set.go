@@ -1,6 +1,7 @@
 package set
 
 // Equal return set if equal, s <==> t
+// time complexity: O(N/32)
 func Equal(s, t *IntSet) bool {
 	sLen, tLen := len(s.dirty), len(t.dirty)
 	if sLen != tLen {
@@ -15,6 +16,7 @@ func Equal(s, t *IntSet) bool {
 }
 
 // Union return the union set of s and t.
+// time complexity: O(N/32)
 func Union(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.dirty), len(t.dirty)
@@ -42,6 +44,7 @@ func Union(s, t *IntSet) *IntSet {
 
 // Intersect return the intersection set of s and t
 // item in s and t
+// time complexity: O(N/32)
 func Intersect(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.dirty), len(t.dirty)
@@ -57,6 +60,7 @@ func Intersect(s, t *IntSet) *IntSet {
 
 // Difference return the difference set of s and t
 // item in s and not in t
+// time complexity: O(N/32)
 func Difference(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.dirty), len(t.dirty)
@@ -77,6 +81,7 @@ func Difference(s, t *IntSet) *IntSet {
 
 // Complement return the complement set of s and t
 // item in s but not in t, and not in s but in t.
+// time complexity: O(N/32)
 func Complement(s, t *IntSet) *IntSet {
 	var p IntSet
 	sLen, tLen := len(s.dirty), len(t.dirty)

@@ -1,6 +1,8 @@
 package set
 
 import (
+	"bytes"
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -41,6 +43,7 @@ func idxMod(x uint32) (idx, mod uint32) {
 }
 
 // Load reports whether the set contains the non-negative value x.
+// time complexity: O(1)
 func (s *IntSet) Load(x uint32) bool {
 	idx, mod := idxMod(x)
 	if idx >= atomic.LoadUint32(&s.len) {
@@ -53,12 +56,14 @@ func (s *IntSet) Load(x uint32) bool {
 }
 
 // Store adds the non-negative value x to the set.
+// time complexity: O(1)
 func (s *IntSet) Store(x uint32) {
 	s.LoadOrStore(x)
 }
 
 // LoadOrStore adds the non-negative value x to the set.
 // loaded report x if in set
+// time complexity: O(1)
 func (s *IntSet) LoadOrStore(x uint32) (loaded bool) {
 	idx, mod := idxMod(x)
 	if idx >= atomic.LoadUint32(&s.len) {
@@ -85,12 +90,14 @@ func (s *IntSet) LoadOrStore(x uint32) (loaded bool) {
 }
 
 // Delete remove x from the set
+// time complexity: O(1)
 func (s *IntSet) Delete(x uint32) {
 	s.LoadAndDelete(x)
 }
 
 // LoadAndDelete remove x from the set
 // loaded report x if in set
+// time complexity: O(1)
 func (s *IntSet) LoadAndDelete(x uint32) (loaded bool) {
 	idx, mod := idxMod(x)
 	if idx >= atomic.LoadUint32(&s.len) {
@@ -109,6 +116,7 @@ func (s *IntSet) LoadAndDelete(x uint32) (loaded bool) {
 }
 
 // Adds add all x in args to the set
+// time complexity: O(n)
 func (s *IntSet) Adds(args ...uint32) {
 	for _, x := range args {
 		s.Store(x)
@@ -116,8 +124,117 @@ func (s *IntSet) Adds(args ...uint32) {
 }
 
 // Removes remove all x in args to the set
+// time complexity: O(n)
 func (s *IntSet) Removes(args ...uint32) {
 	for _, x := range args {
 		s.Delete(x)
 	}
+}
+
+// Range calls f sequentially for each item present in the set.
+// If f returns false, range stops the iteration.
+//
+// Range does not necessarily correspond to any consistent snapshot of the set's
+// contents: no item will be visited more than once, but if the item
+// is stored or deleted concurrently, Range may reflect any mapping for that item.
+//
+// Range may be O(N) with the number of elements in the map even if f returns
+// false after a constant number of calls.
+func (s *IntSet) Range(f func(x uint32) bool) {
+	sLen := atomic.LoadUint32(&s.len)
+	for i := 0; i < int(sLen); i++ {
+		item := atomic.LoadUint32(&s.dirty[i])
+		if item == 0 {
+			continue
+		}
+		for j := 0; j < platform; j++ {
+			if item == 0 {
+				break
+			}
+			if item&1 == 1 {
+				if !f(uint32(platform*i + j)) {
+					return
+				}
+			}
+			item >>= 1
+		}
+	}
+}
+
+// Len return the number of elements in set
+// time complexity: O(N)
+func (s *IntSet) Len() int {
+	var sum int
+	s.Range(func(x uint32) bool {
+		sum += 1
+		return true
+	})
+	return sum
+}
+
+// Clear remove all elements from the set
+// time complexity: O(N/32)
+func (s *IntSet) Clear() {
+	sLen := int(atomic.LoadUint32(&s.len))
+	for i := 0; i < sLen; i++ {
+		atomic.StoreUint32(&s.dirty[i], 0)
+	}
+}
+
+// Copy return a copy of the set
+// time complexity: O(N/32)
+func (s *IntSet) Copy() *IntSet {
+	var n IntSet
+	sLen := int(atomic.LoadUint32(&s.len))
+	n.dirty = make([]uint32, sLen)
+	for i := 0; i < sLen; i++ {
+		n.dirty[i] = atomic.LoadUint32(&s.dirty[i])
+	}
+	return &n
+}
+
+// Null report s if an empty set
+// time complexity: O(N/32)
+func (s *IntSet) Null() bool {
+	sLen := int(atomic.LoadUint32(&s.len))
+	if sLen == 0 {
+		return true
+	}
+	for i := 0; i < int(atomic.LoadUint32(&s.len)); i++ {
+		item := atomic.LoadUint32(&s.dirty[i])
+		if item != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Items return all element in the set
+// time complexity: O(N)
+func (s *IntSet) Items() []uint32 {
+	sum := 0
+	sLen := atomic.LoadUint32(&s.len)
+	array := make([]uint32, sLen*platform)
+	s.Range(func(x uint32) bool {
+		array = append(array, x)
+		sum += 1
+		return true
+	})
+	return array[:sum]
+}
+
+// String returns the set as a string of the form "{1 2 3}".
+// time complexity: O(N)
+func (s *IntSet) String() string {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	s.Range(func(x uint32) bool {
+		if buf.Len() > len("{") {
+			buf.WriteByte(' ')
+		}
+		fmt.Fprintf(&buf, "%d", x)
+		return true
+	})
+	buf.WriteByte('}')
+	return buf.String()
 }
