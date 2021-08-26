@@ -240,7 +240,7 @@ func TestUnion(t *testing.T) {
 	s := initSet(36, 36)
 	r := initSetR(10, 100, 100)
 
-	p := initSet(36, 100)
+	p := initSet(100, 100)
 	q := set.Union(s, r)
 
 	if !set.Equal(p, q) {

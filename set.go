@@ -4,12 +4,27 @@ package set
 // worst time complexity: O(N)
 // best  time complexity: O(1)
 func Equal(s, t *IntSet) bool {
-	if s.Cap() != t.Cap() {
-		return false
-	}
-	for i := 0; i < s.maxIndex(); i++ {
-		if s.items[i] != t.items[i] {
+	sLen, tLen := s.maxIndex(), t.maxIndex()
+	minLen := min(sLen, tLen)
+	for i := 0; i < minLen; i++ {
+		if s.loadIdx(uint32(i)) != t.loadIdx(uint32(i)) {
 			return false
+		}
+	}
+	if sLen == tLen {
+		return true
+	}
+	if sLen > tLen {
+		for i := minLen; i < sLen; i++ {
+			if s.loadIdx(uint32(i)) != 0 {
+				return false
+			}
+		}
+	} else {
+		for i := minLen; i < tLen; i++ {
+			if t.loadIdx(uint32(i)) != 0 {
+				return false
+			}
 		}
 	}
 	return true
@@ -20,23 +35,23 @@ func Equal(s, t *IntSet) bool {
 // best  time complexity: O(N/32)
 func Union(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.items), len(t.items)
+	sLen, tLen := s.maxIndex(), t.maxIndex()
 	maxLen, minLen := maxmin(sLen, tLen)
 	p.OnceInit(max(s.Cap(), t.Cap()))
 
 	// [0-minLen]
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.items[i] | t.items[i]
+		p.items[i] = s.loadIdx(uint32(i)) | t.loadIdx(uint32(i))
 
 	}
 	// [minLen-maxLen]
 	if sLen < tLen {
 		for i := minLen; i < maxLen; i++ {
-			p.items[i] = t.items[i]
+			p.items[i] = t.loadIdx(uint32(i))
 		}
 	} else {
 		for i := minLen; i < maxLen; i++ {
-			p.items[i] = s.items[i]
+			p.items[i] = s.loadIdx(uint32(i))
 		}
 	}
 
@@ -49,12 +64,12 @@ func Union(s, t *IntSet) *IntSet {
 // best  time complexity: O(N/32)
 func Intersect(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.items), len(t.items)
+	sLen, tLen := s.maxIndex(), t.maxIndex()
 	minLen := min(sLen, tLen)
 	p.OnceInit(min(s.Cap(), t.Cap()))
 
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.items[i] & t.items[i]
+		p.items[i] = s.loadIdx(uint32(i)) & t.loadIdx(uint32(i))
 	}
 
 	return &p
@@ -66,16 +81,16 @@ func Intersect(s, t *IntSet) *IntSet {
 // best  time complexity: O(N/32)
 func Difference(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.items), len(t.items)
+	sLen, tLen := s.maxIndex(), t.maxIndex()
 	minLen := min(sLen, tLen)
 	p.OnceInit(s.Cap())
 
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.items[i] &^ t.items[i]
+		p.items[i] = s.loadIdx(uint32(i)) &^ t.loadIdx(uint32(i))
 	}
 	if sLen > tLen {
 		for i := minLen; i < sLen; i++ {
-			p.items[i] = s.items[i]
+			p.items[i] = s.loadIdx(uint32(i))
 		}
 	}
 
@@ -88,18 +103,18 @@ func Difference(s, t *IntSet) *IntSet {
 // best  time complexity: O(N/32)
 func Complement(s, t *IntSet) *IntSet {
 	var p IntSet
-	sLen, tLen := len(s.items), len(t.items)
+	sLen, tLen := s.maxIndex(), t.maxIndex()
 	maxLen, minLen := maxmin(sLen, tLen)
 	p.OnceInit(max(s.Cap(), t.Cap()))
 
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.items[i] ^ t.items[i]
+		p.items[i] = s.loadIdx(uint32(i)) ^ t.loadIdx(uint32(i))
 	}
 	for i := minLen; i < maxLen; i++ {
 		if sLen > tLen {
-			p.items[i] = s.items[i]
+			p.items[i] = s.loadIdx(uint32(i))
 		} else {
-			p.items[i] = t.items[i]
+			p.items[i] = t.loadIdx(uint32(i))
 		}
 	}
 
