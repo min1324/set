@@ -15,8 +15,10 @@ const (
 )
 
 // New return a set with items args.
-func New(args ...uint32) *IntSet {
+// cap is set cap,if cap<1,will use 256.
+func New(cap int, args ...uint32) *IntSet {
 	var s IntSet
+	s.OnceInit(cap)
 	s.Adds(args...)
 	return &s
 }

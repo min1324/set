@@ -81,7 +81,7 @@ func applyCalls(m setInterface, calls []setCall) (results []setResult, final map
 }
 
 func applySet(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.New(), calls)
+	return applyCalls(new(set.IntSet), calls)
 }
 
 func applyMutex(calls []setCall) ([]setResult, map[interface{}]interface{}) {
@@ -110,7 +110,7 @@ func initSet(n, cap int) *set.IntSet {
 }
 
 func TestInit(t *testing.T) {
-	s := initSet(2, 100)
+	s := set.New(100, 0, 1, 2)
 	if !s.Load(0) {
 		t.Fatalf("load exist err:%d", 0)
 	}
