@@ -403,3 +403,27 @@ func TestRace(t *testing.T) {
 	}
 	wg.Done()
 }
+
+func TestReadWrite(t *testing.T) {
+	var goNum = runtime.NumCPU()
+	var wg sync.WaitGroup
+	var s set.IntSet
+	var r = rand.New(rand.NewSource(time.Now().Unix()))
+	wg.Add(goNum)
+	for i := 0; i < goNum; i++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 100000; i++ {
+				ri := r.Intn(5) % 3
+				if ri == 0 {
+					s.Load(uint32(i))
+				} else if ri == 1 {
+					s.Store(uint32(i))
+				} else {
+					s.Delete(uint32(i))
+				}
+			}
+		}()
+	}
+	wg.Done()
+}

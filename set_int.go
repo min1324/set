@@ -82,7 +82,9 @@ func (s *IntSet) LoadOrStore(x uint32) (loaded bool) {
 			if idx < uint32(s.num()) {
 				break
 			}
-			s.items = append(s.items, 0)
+			data := append(s.items, 0)
+			// #01 race with atomic.LoadUint32(&s.items[idx])
+			s.items = data
 			atomic.AddUint32(&s.count, 1)
 		}
 		s.mu.Unlock()
