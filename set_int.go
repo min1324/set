@@ -247,9 +247,8 @@ func (s *IntSet) Clear() {
 // best  time complexity: O(1)
 func (s *IntSet) Copy() *IntSet {
 	var n IntSet
-	sNum := s.maxIndex()
-	n.items = make([]uint32, sNum)
-	for i := 0; i < sNum; i++ {
+	n.OnceInit(s.Cap())
+	for i := 0; i < s.maxIndex(); i++ {
 		n.items[i] = atomic.LoadUint32(&s.items[i])
 	}
 	return &n
