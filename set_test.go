@@ -100,9 +100,9 @@ func TestMatchesMutex(t *testing.T) {
 	}
 }
 
-func initSet(n int) *set.IntSet {
+func initSet(n, cap int) *set.IntSet {
 	var s set.IntSet
-	s.OnceInit(n)
+	s.OnceInit(cap)
 	for i := 0; i < n; i++ {
 		s.Store(uint32(i))
 	}
@@ -110,7 +110,7 @@ func initSet(n int) *set.IntSet {
 }
 
 func TestInit(t *testing.T) {
-	s := initSet(2)
+	s := initSet(2, 100)
 	if !s.Load(0) {
 		t.Fatalf("load exist err:%d", 0)
 	}
@@ -133,7 +133,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestRange(t *testing.T) {
-	s := initSet(100)
+	s := initSet(100, 100)
 	count := 0
 	s.Range(func(x uint32) bool {
 		if x != uint32(count) {
@@ -145,7 +145,7 @@ func TestRange(t *testing.T) {
 }
 
 func TestLen(t *testing.T) {
-	s := initSet(100)
+	s := initSet(100, 100)
 	if s.Len() != 100 {
 		t.Fatalf("len err")
 	}
@@ -159,7 +159,7 @@ func TestLen(t *testing.T) {
 }
 
 func TestClear(t *testing.T) {
-	s := initSet(10)
+	s := initSet(10, 10)
 	s.Clear()
 	if s.Len() != 0 {
 		t.Fatalf("Clear err,len!=0")
@@ -186,18 +186,18 @@ func TestNull(t *testing.T) {
 }
 
 func TestEqual(t *testing.T) {
-	s := initSet(10)
+	s := initSet(10, 100)
 	if !set.Equal(s, s) {
 		t.Fatalf("Equal err, s!=s")
 	}
-	p := initSet(10)
+	p := initSet(10, 100)
 	if !set.Equal(s, p) {
 		t.Fatalf("Equal err, s!=p")
 	}
 }
 
 func TestItems(t *testing.T) {
-	s := initSet(10)
+	s := initSet(10, 100)
 	array := s.Items()
 	slen := s.Len()
 	if slen != len(array) {
@@ -219,7 +219,7 @@ func TestItems(t *testing.T) {
 }
 
 func TestCopy(t *testing.T) {
-	s := initSet(10)
+	s := initSet(10, 100)
 	p := s.Copy()
 	if !set.Equal(s, p) {
 		t.Fatalf("Copy err, s!=p")
@@ -227,9 +227,9 @@ func TestCopy(t *testing.T) {
 }
 
 // return [m,n)
-func initSetR(m, n int) *set.IntSet {
+func initSetR(m, n, cap int) *set.IntSet {
 	var s set.IntSet
-	s.OnceInit(n)
+	s.OnceInit(cap)
 	for i := m; i < n; i++ {
 		s.Store(uint32(i))
 	}
@@ -237,10 +237,10 @@ func initSetR(m, n int) *set.IntSet {
 }
 
 func TestUnion(t *testing.T) {
-	s := initSet(36)
-	r := initSetR(10, 100)
+	s := initSet(36, 36)
+	r := initSetR(10, 100, 100)
 
-	p := initSet(36)
+	p := initSet(36, 100)
 	q := set.Union(s, r)
 
 	if !set.Equal(p, q) {
@@ -250,8 +250,8 @@ func TestUnion(t *testing.T) {
 		t.Logf("Q:%v", q.Items())
 		t.Fatalf("Union err")
 	}
-	k := initSet(10)
-	j := initSetR(10, 36)
+	k := initSet(36, 36)
+	j := initSetR(10, 100, 100)
 	l := set.Union(j, k)
 	if !set.Equal(p, l) {
 		t.Logf("S:%v", j.Items())
@@ -263,10 +263,10 @@ func TestUnion(t *testing.T) {
 }
 
 func TestIntersect(t *testing.T) {
-	s := initSet(20)
-	r := initSetR(10, 36)
+	s := initSet(36, 36)
+	r := initSetR(10, 100, 100)
 
-	p := initSetR(10, 20)
+	p := initSetR(10, 36, 36)
 	q := set.Intersect(s, r)
 
 	if !set.Equal(p, q) {
@@ -277,8 +277,8 @@ func TestIntersect(t *testing.T) {
 		t.Fatalf("Intersect err")
 	}
 
-	k := initSet(20)
-	j := initSetR(10, 36)
+	k := initSet(36, 36)
+	j := initSetR(10, 100, 100)
 	l := set.Intersect(j, k)
 	if !set.Equal(p, l) {
 		t.Logf("S:%v", j.Items())
@@ -290,10 +290,10 @@ func TestIntersect(t *testing.T) {
 }
 
 func TestDifference(t *testing.T) {
-	s := initSet(20)
-	r := initSetR(10, 36)
+	s := initSet(36, 36)
+	r := initSetR(10, 100, 100)
 
-	p := initSet(10)
+	p := initSet(10, 36)
 	q := set.Difference(s, r)
 
 	if !set.Equal(p, q) {
@@ -304,9 +304,9 @@ func TestDifference(t *testing.T) {
 		t.Fatalf("Difference err")
 	}
 
-	k := initSet(20)
-	j := initSetR(10, 36)
-	h := initSetR(20, 36)
+	k := initSet(36, 36)
+	j := initSetR(10, 100, 100)
+	h := initSetR(36, 100, 100)
 	l := set.Difference(j, k)
 	if !set.Equal(h, l) {
 		t.Logf("S:%v", j.Items())
@@ -318,10 +318,10 @@ func TestDifference(t *testing.T) {
 }
 
 func TestComplement(t *testing.T) {
-	s := initSet(20)
-	r := initSetR(10, 36)
+	s := initSet(36, 36)
+	r := initSetR(10, 100, 100)
 
-	p := set.Union(initSet(10), initSetR(20, 36))
+	p := set.Union(initSet(10, 10), initSetR(36, 100, 100))
 	q := set.Complement(s, r)
 
 	if !set.Equal(p, q) {
@@ -332,8 +332,8 @@ func TestComplement(t *testing.T) {
 		t.Fatalf("Complement err")
 	}
 
-	k := initSet(20)
-	j := initSetR(10, 36)
+	k := initSet(36, 36)
+	j := initSetR(10, 100, 100)
 	l := set.Complement(j, k)
 	if !set.Equal(p, l) {
 		t.Logf("S:%v", j.Items())
