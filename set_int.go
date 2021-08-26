@@ -9,9 +9,9 @@ import (
 
 const (
 	// platform bit = 2^setBits,(32/64)
-	setBits  = 5 //+ (^uint(0) >> 63)
-	platform = 1 << setBits
-	setMesk  = 1<<setBits - 1
+	setBits         = 5 //+ (^uint(0) >> 63)
+	platform        = 1 << setBits
+	setMesk  uint32 = 1<<setBits - 1
 )
 
 // New return a set with items args.
@@ -79,8 +79,8 @@ func (s *IntSet) Init() {
 // in 32 bit platform
 // x = 32*idx + mod
 // idx = x/32 (x>>5) , mod = x%32 (x&(1<<5-1))
-func idxMod(x uint32) (idx, mod uint32) {
-	return x >> setBits, x & setMesk
+func idxMod(x uint32) (idx, mod int) {
+	return int(x >> setBits), int(x & setMesk)
 }
 
 func (s *IntSet) maxIndex() int {
@@ -88,7 +88,7 @@ func (s *IntSet) maxIndex() int {
 }
 
 // i must < num
-func (s *IntSet) loadIdx(i uint32) uint32 {
+func (s *IntSet) loadIdx(i int) uint32 {
 	return atomic.LoadUint32(&s.items[i])
 }
 
@@ -104,7 +104,7 @@ func (s *IntSet) Load(x uint32) bool {
 		return false
 	}
 	idx, mod := idxMod(x)
-	if idx >= uint32(s.maxIndex()) {
+	if idx >= s.maxIndex() {
 		// overflow
 		return false
 	}
@@ -130,7 +130,7 @@ func (s *IntSet) LoadOrStore(x uint32) (loaded, ok bool) {
 		return false, false
 	}
 	idx, mod := idxMod(x)
-	if idx >= uint32(s.maxIndex()) {
+	if idx >= s.maxIndex() {
 		return false, false
 	}
 
@@ -162,7 +162,7 @@ func (s *IntSet) LoadAndDelete(x uint32) (loaded, ok bool) {
 		return false, false
 	}
 	idx, mod := idxMod(x)
-	if idx >= uint32(s.maxIndex()) {
+	if idx >= s.maxIndex() {
 		// overflow
 		return false, false
 	}
@@ -209,7 +209,7 @@ func (s *IntSet) Removes(args ...uint32) {
 func (s *IntSet) Range(f func(x uint32) bool) {
 	sNum := uint32(s.maxIndex())
 	for i := 0; i < int(sNum); i++ {
-		item := s.loadIdx(uint32(i))
+		item := s.loadIdx(i)
 		if item == 0 {
 			continue
 		}
@@ -256,7 +256,7 @@ func (s *IntSet) Copy() *IntSet {
 	var n IntSet
 	n.OnceInit(s.Cap())
 	for i := 0; i < s.maxIndex(); i++ {
-		n.items[i] = s.loadIdx(uint32(i))
+		n.items[i] = s.loadIdx(i)
 	}
 	return &n
 }
@@ -269,7 +269,7 @@ func (s *IntSet) Null() bool {
 		return true
 	}
 	for i := 0; i < s.maxIndex(); i++ {
-		item := s.loadIdx(uint32(i))
+		item := s.loadIdx(i)
 		if item != 0 {
 			return false
 		}

@@ -7,7 +7,7 @@ func Equal(s, t *IntSet) bool {
 	sLen, tLen := s.maxIndex(), t.maxIndex()
 	minLen := min(sLen, tLen)
 	for i := 0; i < minLen; i++ {
-		if s.loadIdx(uint32(i)) != t.loadIdx(uint32(i)) {
+		if s.loadIdx(i) != t.loadIdx(i) {
 			return false
 		}
 	}
@@ -16,13 +16,13 @@ func Equal(s, t *IntSet) bool {
 	}
 	if sLen > tLen {
 		for i := minLen; i < sLen; i++ {
-			if s.loadIdx(uint32(i)) != 0 {
+			if s.loadIdx(i) != 0 {
 				return false
 			}
 		}
 	} else {
 		for i := minLen; i < tLen; i++ {
-			if t.loadIdx(uint32(i)) != 0 {
+			if t.loadIdx(i) != 0 {
 				return false
 			}
 		}
@@ -41,17 +41,17 @@ func Union(s, t *IntSet) *IntSet {
 
 	// [0-minLen]
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.loadIdx(uint32(i)) | t.loadIdx(uint32(i))
+		p.items[i] = s.loadIdx(i) | t.loadIdx(i)
 
 	}
 	// [minLen-maxLen]
 	if sLen < tLen {
 		for i := minLen; i < maxLen; i++ {
-			p.items[i] = t.loadIdx(uint32(i))
+			p.items[i] = t.loadIdx(i)
 		}
 	} else {
 		for i := minLen; i < maxLen; i++ {
-			p.items[i] = s.loadIdx(uint32(i))
+			p.items[i] = s.loadIdx(i)
 		}
 	}
 
@@ -69,7 +69,7 @@ func Intersect(s, t *IntSet) *IntSet {
 	p.OnceInit(min(s.Cap(), t.Cap()))
 
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.loadIdx(uint32(i)) & t.loadIdx(uint32(i))
+		p.items[i] = s.loadIdx(i) & t.loadIdx(i)
 	}
 
 	return &p
@@ -86,11 +86,11 @@ func Difference(s, t *IntSet) *IntSet {
 	p.OnceInit(s.Cap())
 
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.loadIdx(uint32(i)) &^ t.loadIdx(uint32(i))
+		p.items[i] = s.loadIdx(i) &^ t.loadIdx(i)
 	}
 	if sLen > tLen {
 		for i := minLen; i < sLen; i++ {
-			p.items[i] = s.loadIdx(uint32(i))
+			p.items[i] = s.loadIdx(i)
 		}
 	}
 
@@ -108,13 +108,13 @@ func Complement(s, t *IntSet) *IntSet {
 	p.OnceInit(max(s.Cap(), t.Cap()))
 
 	for i := 0; i < minLen; i++ {
-		p.items[i] = s.loadIdx(uint32(i)) ^ t.loadIdx(uint32(i))
+		p.items[i] = s.loadIdx(i) ^ t.loadIdx(i)
 	}
 	for i := minLen; i < maxLen; i++ {
 		if sLen > tLen {
-			p.items[i] = s.loadIdx(uint32(i))
+			p.items[i] = s.loadIdx(i)
 		} else {
-			p.items[i] = t.loadIdx(uint32(i))
+			p.items[i] = t.loadIdx(i)
 		}
 	}
 
