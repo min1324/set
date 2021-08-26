@@ -2,15 +2,16 @@ package set_test
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 type setInterface interface {
 	Len() int
 	Load(x uint32) bool
-	Store(x uint32)
-	LoadOrStore(x uint32) (loaded bool)
-	LoadAndDelete(x uint32) (loaded bool)
-	Delete(x uint32)
+	Store(x uint32) bool
+	LoadOrStore(x uint32) (loaded, ok bool)
+	LoadAndDelete(x uint32) (loaded, ok bool)
+	Delete(x uint32) bool
 	Range(f func(x uint32) bool)
 }
 
@@ -22,66 +23,127 @@ const (
 )
 
 type MutexSet struct {
-	mu    sync.Mutex
+	mu   sync.Mutex
+	once sync.Once
+
+	// max input x
+	cap uint32
+
+	// len(items)
+	num uint32
+
 	items []uint32
+}
+
+const (
+	initSize = 1 << 8
+)
+
+func (s *MutexSet) onceInit(cap int) {
+	s.once.Do(func() {
+		if cap < 1 {
+			cap = initSize
+		}
+		num := cap>>5 + 1
+		s.items = make([]uint32, num)
+		s.num = uint32(num)
+		s.cap = uint32(cap)
+	})
+}
+
+// OnceInit initialize set use cap
+// it only execute once time.
+// if cap<1, will use 256.
+func (s *MutexSet) OnceInit(cap int) {
+	s.onceInit(cap)
+}
+
+// Init initialize queue use default size: 256
+// it only execute once time.
+func (s *MutexSet) Init() {
+	s.onceInit(0)
+}
+
+// Cap return queue's cap
+func (q *MutexSet) Cap() int {
+	return int(atomic.LoadUint32(&q.cap))
 }
 
 func idxMod(x uint32) (idx, mod int) {
 	return int(x >> setBits), int(x & setMesk)
 }
 
+func (s *MutexSet) maxIndex() int {
+	return int(atomic.LoadUint32(&s.num))
+}
+
 func (s *MutexSet) Load(x uint32) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	idx, mod := idxMod(x)
-	if idx >= len(s.items) {
+	if idx >= s.maxIndex() {
 		return false
 	}
 	return (s.items[idx]>>mod)&1 == 1
 
 }
 
-func (s *MutexSet) Store(x uint32) {
-	s.LoadOrStore(x)
+func (s *MutexSet) Store(x uint32) bool {
+	_, ok := s.LoadOrStore(x)
+	return ok
 }
 
-func (s *MutexSet) LoadOrStore(x uint32) (loaded bool) {
+func (s *MutexSet) LoadOrStore(x uint32) (loaded, ok bool) {
+	s.Init()
+	if x > atomic.LoadUint32(&s.cap) {
+		return false, false
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	idx, mod := idxMod(x)
-	if idx >= len(s.items) {
-		for {
-			if idx < len(s.items) {
-				break
-			}
-			s.items = append(s.items, 0)
-		}
+	if x > atomic.LoadUint32(&s.cap) {
+		return false, false
 	}
+
+	idx, mod := idxMod(x)
+	if idx >= s.maxIndex() {
+		return false, false
+	}
+
 	item := s.items[idx]
 	if (item>>mod)&1 == 1 {
-		return true
+		return true, true
 	}
 	s.items[idx] |= 1 << mod
-	return
+	return false, true
 }
 
-func (s *MutexSet) Delete(x uint32) {
-	s.LoadAndDelete(x)
+func (s *MutexSet) Delete(x uint32) bool {
+	_, ok := s.LoadAndDelete(x)
+	return ok
 }
 
-func (s *MutexSet) LoadAndDelete(x uint32) (loaded bool) {
+func (s *MutexSet) LoadAndDelete(x uint32) (loaded, ok bool) {
+	s.Init()
+	if x > atomic.LoadUint32(&s.cap) {
+		return false, false
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if x > atomic.LoadUint32(&s.cap) {
+		return false, false
+	}
+
 	idx, mod := idxMod(x)
-	if idx >= len(s.items) {
-		return false
+	if idx >= s.maxIndex() {
+		return false, false
 	}
 	item := s.items[idx]
 	if (item>>mod)&1 == 0 {
-		return false
+		return false, true
 	}
 	s.items[idx] &^= 1 << mod
-	return true
+	return true, true
 }
 
 func (s *MutexSet) Range(f func(x uint32) bool) {

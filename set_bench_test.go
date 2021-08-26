@@ -85,11 +85,11 @@ func BenchmarkLoadOrStoreBalanced(b *testing.B) {
 			for ; pb.Next(); i++ {
 				j := i % (hits + misses)
 				if j < hits {
-					if ok := m.LoadOrStore(uint32(j)); !ok {
+					if loaded, _ := m.LoadOrStore(uint32(j)); !loaded {
 						b.Fatalf("unexpected miss for %v", j)
 					}
 				} else {
-					if loaded := m.LoadOrStore(uint32(i)); loaded {
+					if loaded, _ := m.LoadOrStore(uint32(i)); loaded {
 						b.Fatalf("failed to store %v: existing value %v", i, i)
 					}
 				}

@@ -29,12 +29,45 @@ func New(args ...uint32) *IntSet {
 // idx = x/2^setBits (x>>setBits) , mod = x%2^setBits (x&setMesk)
 // in the set, x is the pesition: dirty[idx]&(1<<mod)
 type IntSet struct {
-	mu sync.Mutex
+	once sync.Once
 
-	count uint32
+	// max input x
+	cap uint32
+
+	// len(items)
+	num uint32
 
 	// only increase
 	items []uint32
+}
+
+const (
+	initSize = 1 << 8
+)
+
+func (s *IntSet) onceInit(cap int) {
+	s.once.Do(func() {
+		if cap < 1 {
+			cap = initSize
+		}
+		num := cap>>5 + 1
+		s.items = make([]uint32, num)
+		s.num = uint32(num)
+		s.cap = uint32(cap)
+	})
+}
+
+// OnceInit initialize set use cap
+// it only execute once time.
+// if cap<1, will use 256.
+func (s *IntSet) OnceInit(cap int) {
+	s.onceInit(cap)
+}
+
+// Init initialize queue use default size: 256
+// it only execute once time.
+func (s *IntSet) Init() {
+	s.OnceInit(0)
 }
 
 // in 64 bit platform
@@ -48,15 +81,23 @@ func idxMod(x uint32) (idx, mod uint32) {
 	return x >> setBits, x & setMesk
 }
 
-func (s *IntSet) num() int {
-	return int(atomic.LoadUint32(&s.count))
+func (s *IntSet) maxIndex() int {
+	return int(atomic.LoadUint32(&s.num))
+}
+
+// Cap return queue's cap
+func (q *IntSet) Cap() int {
+	return int(atomic.LoadUint32(&q.cap))
 }
 
 // Load reports whether the set contains the non-negative value x.
 // time complexity: O(1)
 func (s *IntSet) Load(x uint32) bool {
+	if x > atomic.LoadUint32(&s.cap) {
+		return false
+	}
 	idx, mod := idxMod(x)
-	if idx >= uint32(s.num()) {
+	if idx >= uint32(s.maxIndex()) {
 		// overflow
 		return false
 	}
@@ -66,63 +107,65 @@ func (s *IntSet) Load(x uint32) bool {
 }
 
 // Store adds the non-negative value x to the set.
+// return if x overflow
 // time complexity: O(1)
-func (s *IntSet) Store(x uint32) {
-	s.LoadOrStore(x)
+func (s *IntSet) Store(x uint32) bool {
+	_, ok := s.LoadOrStore(x)
+	return ok
 }
 
 // LoadOrStore adds the non-negative value x to the set.
-// loaded report x if in set
+// loaded report x if in set,ok report if x overflow
 // time complexity: O(1)
-func (s *IntSet) LoadOrStore(x uint32) (loaded bool) {
+func (s *IntSet) LoadOrStore(x uint32) (loaded, ok bool) {
+	s.Init()
+	if x > atomic.LoadUint32(&s.cap) {
+		return false, false
+	}
 	idx, mod := idxMod(x)
-	if idx >= uint32(s.num()) {
-		s.mu.Lock()
-		for {
-			if idx < uint32(s.num()) {
-				break
-			}
-			data := append(s.items, 0)
-			// #01 race with atomic.LoadUint32(&s.items[idx])
-			s.items = data
-			atomic.AddUint32(&s.count, 1)
-		}
-		s.mu.Unlock()
+	if idx >= uint32(s.maxIndex()) {
+		return false, false
 	}
 
 	for {
 		item := atomic.LoadUint32(&s.items[idx])
 		if (item>>mod)&1 == 1 {
-			return true
+			return true, true
 		}
 		if atomic.CompareAndSwapUint32(&s.items[idx], item, item|(1<<mod)) {
-			return false
+			return false, true
 		}
 	}
 }
 
 // Delete remove x from the set
+// return if x overflow
 // time complexity: O(1)
-func (s *IntSet) Delete(x uint32) {
-	s.LoadAndDelete(x)
+func (s *IntSet) Delete(x uint32) bool {
+	_, ok := s.LoadAndDelete(x)
+	return ok
 }
 
 // LoadAndDelete remove x from the set
-// loaded report x if in set
+// loaded report x if in set,ok report if x overflow
 // time complexity: O(1)
-func (s *IntSet) LoadAndDelete(x uint32) (loaded bool) {
+func (s *IntSet) LoadAndDelete(x uint32) (loaded, ok bool) {
+	s.Init()
+	if x > atomic.LoadUint32(&s.cap) {
+		return false, false
+	}
 	idx, mod := idxMod(x)
-	if idx >= uint32(s.num()) {
+	if idx >= uint32(s.maxIndex()) {
 		// overflow
-		return false
+		return false, false
 	}
 	for {
 		item := atomic.LoadUint32(&s.items[idx])
 		if (item>>mod)&1 == 0 {
-			return false
+			return false, true
 		}
 		if atomic.CompareAndSwapUint32(&s.items[idx], item, item&^(1<<mod)) {
-			return true
+			return true, true
 		}
 	}
 }
@@ -157,7 +200,7 @@ func (s *IntSet) Removes(args ...uint32) {
 // worst time complexity: O(32*N)
 // best  time complexity: O(N)
 func (s *IntSet) Range(f func(x uint32) bool) {
-	sNum := uint32(s.num())
+	sNum := uint32(s.maxIndex())
 	for i := 0; i < int(sNum); i++ {
 		item := atomic.LoadUint32(&s.items[i])
 		if item == 0 {
@@ -193,7 +236,7 @@ func (s *IntSet) Len() int {
 // worst time complexity: O(N)
 // best  time complexity: O(1)
 func (s *IntSet) Clear() {
-	sNum := s.num()
+	sNum := s.maxIndex()
 	for i := 0; i < sNum; i++ {
 		atomic.StoreUint32(&s.items[i], 0)
 	}
@@ -204,7 +247,7 @@ func (s *IntSet) Clear() {
 // best  time complexity: O(1)
 func (s *IntSet) Copy() *IntSet {
 	var n IntSet
-	sNum := s.num()
+	sNum := s.maxIndex()
 	n.items = make([]uint32, sNum)
 	for i := 0; i < sNum; i++ {
 		n.items[i] = atomic.LoadUint32(&s.items[i])
@@ -216,10 +259,10 @@ func (s *IntSet) Copy() *IntSet {
 // worst time complexity: O(N)
 // best  time complexity: O(1)
 func (s *IntSet) Null() bool {
-	if s.num() == 0 {
+	if s.maxIndex() == 0 {
 		return true
 	}
-	for i := 0; i < s.num(); i++ {
+	for i := 0; i < s.maxIndex(); i++ {
 		item := atomic.LoadUint32(&s.items[i])
 		if item != 0 {
 			return false
@@ -233,7 +276,7 @@ func (s *IntSet) Null() bool {
 // best  time complexity: O(N)
 func (s *IntSet) Items() []uint32 {
 	sum := 0
-	sNum := s.num()
+	sNum := s.maxIndex()
 	array := make([]uint32, 0, sNum*platform)
 	s.Range(func(x uint32) bool {
 		array = append(array, x)

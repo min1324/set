@@ -41,9 +41,11 @@ func (c setCall) apply(m setInterface) (uint32, bool) {
 	case opLoad:
 		return c.k, m.Load(c.k)
 	case opLoadOrStore:
-		return c.k, m.LoadOrStore(c.k)
+		l, _ := m.LoadOrStore(c.k)
+		return c.k, l
 	case opLoadAndDelete:
-		return c.k, m.LoadAndDelete(c.k)
+		l, _ := m.LoadAndDelete(c.k)
+		return c.k, l
 	default:
 		panic("invalid mapOp")
 	}
