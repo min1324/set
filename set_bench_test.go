@@ -9,6 +9,10 @@ import (
 	"github.com/min1324/set"
 )
 
+const (
+	preInitSize = 1 << 30
+)
+
 type bench struct {
 	setup func(*testing.B, setInterface)
 	perG  func(b *testing.B, pb *testing.PB, i int, m setInterface)
@@ -25,6 +29,7 @@ func benchMap(b *testing.B, bench bench) {
 			if bench.setup != nil {
 				bench.setup(b, m)
 			}
+			m.OnceInit(preInitSize)
 			b.ResetTimer()
 			var i int64
 			b.RunParallel(func(pb *testing.PB) {
@@ -40,6 +45,7 @@ func BenchmarkLoadMostlyHits(b *testing.B) {
 
 	benchMap(b, bench{
 		setup: func(_ *testing.B, m setInterface) {
+			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
@@ -58,6 +64,7 @@ func BenchmarkLoadMostlyMisses(b *testing.B) {
 
 	benchMap(b, bench{
 		setup: func(_ *testing.B, m setInterface) {
+			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
@@ -76,6 +83,7 @@ func BenchmarkLoadOrStoreBalanced(b *testing.B) {
 
 	benchMap(b, bench{
 		setup: func(b *testing.B, m setInterface) {
+			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
@@ -105,6 +113,9 @@ func BenchmarkLoadOrStoreUnique(b *testing.B) {
 
 		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
 			for ; pb.Next(); i++ {
+				if i > m.Cap() {
+					b.Fatalf("i>cap:%d,%d", i, m.Cap())
+				}
 				m.LoadOrStore(uint32(i))
 			}
 		},
@@ -114,6 +125,7 @@ func BenchmarkLoadOrStoreUnique(b *testing.B) {
 func BenchmarkLoadOrStoreCollision(b *testing.B) {
 	benchMap(b, bench{
 		setup: func(_ *testing.B, m setInterface) {
+			m.OnceInit(1 << 10)
 			m.LoadOrStore(uint32(0))
 		},
 
@@ -130,6 +142,7 @@ func BenchmarkLoadAndDeleteBalanced(b *testing.B) {
 
 	benchMap(b, bench{
 		setup: func(b *testing.B, m setInterface) {
+			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
@@ -151,11 +164,16 @@ func BenchmarkLoadAndDeleteBalanced(b *testing.B) {
 func BenchmarkLoadAndDeleteUnique(b *testing.B) {
 	benchMap(b, bench{
 		setup: func(b *testing.B, m setInterface) {
-
+			for i := 0; i < m.Cap(); i++ {
+				m.Store(uint32(i))
+			}
 		},
 
 		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
 			for ; pb.Next(); i++ {
+				if i > m.Cap() {
+					b.Fatalf("i>cap:%d,%d", i, m.Cap())
+				}
 				m.LoadAndDelete(uint32(i))
 			}
 		},
@@ -165,6 +183,7 @@ func BenchmarkLoadAndDeleteUnique(b *testing.B) {
 func BenchmarkLoadAndDeleteCollision(b *testing.B) {
 	benchMap(b, bench{
 		setup: func(_ *testing.B, m setInterface) {
+			m.OnceInit(1 << 10)
 			m.LoadOrStore(0)
 		},
 

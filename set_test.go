@@ -57,7 +57,7 @@ type setResult struct {
 }
 
 func randValue(r *rand.Rand) uint32 {
-	return uint32(rand.Int31n(32 * 5))
+	return uint32(rand.Int31n(32 << 5))
 }
 
 func (setCall) Generate(r *rand.Rand, size int) reflect.Value {
@@ -102,6 +102,7 @@ func TestMatchesMutex(t *testing.T) {
 
 func initSet(n int) *set.IntSet {
 	var s set.IntSet
+	s.OnceInit(n)
 	for i := 0; i < n; i++ {
 		s.Store(uint32(i))
 	}
@@ -228,6 +229,7 @@ func TestCopy(t *testing.T) {
 // return [m,n)
 func initSetR(m, n int) *set.IntSet {
 	var s set.IntSet
+	s.OnceInit(n)
 	for i := m; i < n; i++ {
 		s.Store(uint32(i))
 	}
@@ -235,8 +237,8 @@ func initSetR(m, n int) *set.IntSet {
 }
 
 func TestUnion(t *testing.T) {
-	s := initSet(10)
-	r := initSetR(10, 36)
+	s := initSet(36)
+	r := initSetR(10, 100)
 
 	p := initSet(36)
 	q := set.Union(s, r)

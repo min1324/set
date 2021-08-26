@@ -6,6 +6,8 @@ import (
 )
 
 type setInterface interface {
+	OnceInit(cap int)
+	Cap() int
 	Len() int
 	Load(x uint32) bool
 	Store(x uint32) bool
