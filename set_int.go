@@ -52,8 +52,8 @@ func (s *IntSet) onceInit(cap int) {
 		}
 		num := cap>>5 + 1
 		s.items = make([]uint32, num)
-		s.num = uint32(num)
-		s.cap = uint32(cap)
+		atomic.StoreUint32(&s.num, uint32(num))
+		atomic.StoreUint32(&s.cap, uint32(cap))
 	})
 }
 
@@ -85,6 +85,11 @@ func (s *IntSet) maxIndex() int {
 	return int(atomic.LoadUint32(&s.num))
 }
 
+// i must < num
+func (s *IntSet) loadIdx(i uint32) uint32 {
+	return atomic.LoadUint32(&s.items[i])
+}
+
 // Cap return queue's cap
 func (q *IntSet) Cap() int {
 	return int(atomic.LoadUint32(&q.cap))
@@ -101,7 +106,7 @@ func (s *IntSet) Load(x uint32) bool {
 		// overflow
 		return false
 	}
-	item := atomic.LoadUint32(&s.items[idx])
+	item := s.loadIdx(idx)
 	// return s.dirty[idx]&(1<<mod) != 0
 	return (item>>mod)&1 == 1
 }
@@ -128,7 +133,7 @@ func (s *IntSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	}
 
 	for {
-		item := atomic.LoadUint32(&s.items[idx])
+		item := s.loadIdx(idx)
 		if (item>>mod)&1 == 1 {
 			return true, true
 		}
@@ -160,7 +165,7 @@ func (s *IntSet) LoadAndDelete(x uint32) (loaded, ok bool) {
 		return false, false
 	}
 	for {
-		item := atomic.LoadUint32(&s.items[idx])
+		item := s.loadIdx(idx)
 		if (item>>mod)&1 == 0 {
 			return false, true
 		}
@@ -202,7 +207,7 @@ func (s *IntSet) Removes(args ...uint32) {
 func (s *IntSet) Range(f func(x uint32) bool) {
 	sNum := uint32(s.maxIndex())
 	for i := 0; i < int(sNum); i++ {
-		item := atomic.LoadUint32(&s.items[i])
+		item := s.loadIdx(uint32(i))
 		if item == 0 {
 			continue
 		}
@@ -249,7 +254,7 @@ func (s *IntSet) Copy() *IntSet {
 	var n IntSet
 	n.OnceInit(s.Cap())
 	for i := 0; i < s.maxIndex(); i++ {
-		n.items[i] = atomic.LoadUint32(&s.items[i])
+		n.items[i] = s.loadIdx(uint32(i))
 	}
 	return &n
 }
@@ -262,7 +267,7 @@ func (s *IntSet) Null() bool {
 		return true
 	}
 	for i := 0; i < s.maxIndex(); i++ {
-		item := atomic.LoadUint32(&s.items[i])
+		item := s.loadIdx(uint32(i))
 		if item != 0 {
 			return false
 		}
