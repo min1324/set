@@ -1,6 +1,7 @@
 package set_test
 
 import (
+	"fmt"
 	"math/rand"
 	"reflect"
 	"runtime"
@@ -100,13 +101,94 @@ func TestMatchesMutex(t *testing.T) {
 	}
 }
 
-func initSet(n, cap int) *set.IntSet {
-	var s set.IntSet
+func initSet(n, cap int) *set.SliceSet {
+	var s set.SliceSet
 	s.OnceInit(cap)
 	for i := 0; i < n; i++ {
 		s.Store(uint32(i))
 	}
 	return &s
+}
+
+func ExampleSliceSet_initSet() {
+	s := new(set.SliceSet)
+	s.Adds(10000)
+	s.Range(func(x uint32) bool {
+		fmt.Printf("%d ", x)
+		return true
+	})
+	// Output:
+	// 10000
+}
+
+func ExampleInit() {
+	var s set.SliceSet
+	load, ok := s.LoadOrStore(0)
+	if !ok {
+		fmt.Println("!ok")
+	}
+	if load {
+		fmt.Println("load")
+	}
+	fmt.Println(s.Load(0))
+	fmt.Println(s.String())
+	// Output:
+	// true
+	// {0}
+}
+
+func ExampleSliceSet_range() {
+	s := set.New(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
+	s.Store(7)
+	s.Removes(2)
+	fmt.Println(s.Len(), s.Cap())
+	s.Range(func(x uint32) bool {
+		fmt.Printf("%d ", x)
+		return true
+	})
+	// Output:
+	// 11 100
+	// 0 1 7 31 32 63 64 91 92 99 100
+}
+
+func ExampleUnion() {
+	s := set.NewSlice(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewSlice(100, 4, 5, 6, 7, 8)
+
+	u := set.Union(s, p)
+	fmt.Println(u)
+	// Output:
+	// {0 1 2 3 4 5 6 7 8}
+}
+
+func ExampleIntersect() {
+	s := set.NewSlice(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewSlice(100, 4, 5, 6, 7, 8)
+
+	u := set.Intersect(s, p)
+	fmt.Println(u)
+	// Output:
+	// {4 5}
+}
+
+func ExampleDifference() {
+	s := set.NewSlice(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewSlice(100, 4, 5, 6, 7, 8)
+
+	u := set.Difference(s, p)
+	fmt.Println(u)
+	// Output:
+	// {0 1 2 3}
+}
+
+func ExampleComplement() {
+	s := set.NewSlice(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewSlice(100, 4, 5, 6, 7, 8)
+
+	u := set.Complement(s, p)
+	fmt.Println(u)
+	// Output:
+	// {0 1 2 3 6 7 8}
 }
 
 func TestInit(t *testing.T) {
@@ -171,7 +253,7 @@ func TestClear(t *testing.T) {
 }
 
 func TestNull(t *testing.T) {
-	var s set.IntSet
+	var s set.SliceSet
 	if !s.Null() {
 		t.Fatalf("init Null err")
 	}
@@ -227,8 +309,8 @@ func TestCopy(t *testing.T) {
 }
 
 // return [m,n)
-func initSetR(m, n, cap int) *set.IntSet {
-	var s set.IntSet
+func initSetR(m, n, cap int) *set.SliceSet {
+	var s set.SliceSet
 	s.OnceInit(cap)
 	for i := m; i < n; i++ {
 		s.Store(uint32(i))
@@ -358,7 +440,7 @@ var raceOps = [...]setOp{
 	opItems,
 }
 
-func (c setCall) raceCall(s *set.IntSet) {
+func (c setCall) raceCall(s *set.SliceSet) {
 	switch c.op {
 	case opLoad:
 		s.Load(c.k)
@@ -394,7 +476,7 @@ func generate(r *rand.Rand) *setCall {
 func TestRace(t *testing.T) {
 	var goNum = runtime.NumCPU()
 	var wg sync.WaitGroup
-	var s set.IntSet
+	var s set.SliceSet
 	var r = rand.New(rand.NewSource(time.Now().Unix()))
 	wg.Add(goNum)
 	for i := 0; i < goNum; i++ {

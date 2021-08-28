@@ -22,34 +22,37 @@ const (
 	setBits  = 5 //+ (^uint(0) >> 63)
 	platform = 1 << setBits
 	setMesk  = 1<<setBits - 1
+
+	maxItem uint32 = 1 << 24 * 31
+
+	initCap = 8
 )
 
 type MutexSet struct {
 	mu   sync.Mutex
 	once sync.Once
 
+	max uint32
+
 	// max input x
 	cap uint32
 
 	// len(items)
-	num uint32
+	len uint32
 
 	items []uint32
 }
 
-const (
-	initSize = 1 << 8
-)
-
-func (s *MutexSet) onceInit(cap int) {
+func (s *MutexSet) onceInit(max int) {
 	s.once.Do(func() {
-		if cap < 1 {
-			cap = initSize
+		var cap uint32 = uint32(max>>5 + 1)
+		if max < 1 {
+			max = int(maxItem)
+			cap = initCap
 		}
-		num := cap>>5 + 1
-		s.items = make([]uint32, num)
-		s.num = uint32(num)
+		s.items = make([]uint32, cap)
 		s.cap = uint32(cap)
+		s.max = uint32(max)
 	})
 }
 
@@ -68,22 +71,27 @@ func (s *MutexSet) Init() {
 
 // Cap return queue's cap
 func (q *MutexSet) Cap() int {
-	return int(atomic.LoadUint32(&q.cap))
+	return int(atomic.LoadUint32(&q.max))
+}
+
+// Cap return queue's cap
+func (q *MutexSet) Max() uint32 {
+	return atomic.LoadUint32(&q.max)
 }
 
 func idxMod(x uint32) (idx, mod int) {
 	return int(x >> setBits), int(x & setMesk)
 }
 
-func (s *MutexSet) maxIndex() int {
-	return int(atomic.LoadUint32(&s.num))
-}
-
 func (s *MutexSet) Load(x uint32) bool {
+	if x > s.Max() {
+		// overflow
+		return false
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	idx, mod := idxMod(x)
-	if idx >= s.maxIndex() {
+	if idx >= int(s.len) {
 		return false
 	}
 	return (s.items[idx]>>mod)&1 == 1
@@ -97,18 +105,27 @@ func (s *MutexSet) Store(x uint32) bool {
 
 func (s *MutexSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	s.Init()
-	if x > atomic.LoadUint32(&s.cap) {
+	if x > s.Max() {
 		return false, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if x > atomic.LoadUint32(&s.cap) {
-		return false, false
-	}
 
 	idx, mod := idxMod(x)
-	if idx >= s.maxIndex() {
-		return false, false
+	if idx >= int(s.len) {
+		if idx < int(s.cap) {
+			atomic.StoreUint32(&s.len, uint32(idx+1))
+		} else {
+			// grow
+			newCap := idx + 1
+			data := make([]uint32, newCap)
+			for i := 0; i < int(s.cap); i++ {
+				data[i] = s.items[i]
+			}
+			s.items = data
+			s.cap = uint32(newCap)
+			s.len = uint32(idx + 1)
+		}
 	}
 
 	item := s.items[idx]
@@ -126,18 +143,14 @@ func (s *MutexSet) Delete(x uint32) bool {
 
 func (s *MutexSet) LoadAndDelete(x uint32) (loaded, ok bool) {
 	s.Init()
-	if x > atomic.LoadUint32(&s.cap) {
+	if x > s.Max() {
 		return false, false
 	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if x > atomic.LoadUint32(&s.cap) {
-		return false, false
-	}
 
 	idx, mod := idxMod(x)
-	if idx >= s.maxIndex() {
+	if idx >= int(atomic.LoadUint32(&s.len)) {
 		return false, false
 	}
 	item := s.items[idx]
