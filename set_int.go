@@ -16,24 +16,6 @@ const (
 	setMesk  uint32 = 1<<setBits - 1
 )
 
-// New return a set with items args.
-// cap is set cap,if cap<1,will use 256.
-func New(cap int, args ...uint32) *IntSet {
-	var s IntSet
-	s.OnceInit(cap)
-	s.Adds(args...)
-	return &s
-}
-
-// New return a set with items args.
-// cap is set cap,if cap<1,will use 256.
-func NewSlice(cap int, args ...uint32) *SliceSet {
-	var s SliceSet
-	s.OnceInit(cap)
-	s.Adds(args...)
-	return &s
-}
-
 // IntSet is a set of non-negative integers.
 // Its zero value represents the empty set.
 //
@@ -45,10 +27,13 @@ type IntSet struct {
 	once sync.Once
 
 	// max input x
+	max uint32
+
+	// cap(items)
 	cap uint32
 
 	// len(items)
-	num uint32
+	len uint32
 
 	// only increase
 	items []uint32
@@ -58,15 +43,16 @@ const (
 	initSize = 1 << 8
 )
 
-func (s *IntSet) onceInit(cap int) {
+func (s *IntSet) onceInit(max int) {
 	s.once.Do(func() {
-		if cap < 1 {
-			cap = initSize
+		if max < 1 {
+			max = initSize
 		}
-		num := cap>>5 + 1
+		num := max>>5 + 1
 		s.items = make([]uint32, num)
-		atomic.StoreUint32(&s.num, uint32(num))
-		atomic.StoreUint32(&s.cap, uint32(cap))
+		atomic.StoreUint32(&s.len, uint32(num))
+		atomic.StoreUint32(&s.cap, uint32(num))
+		atomic.StoreUint32(&s.max, uint32(max))
 	})
 }
 
@@ -94,32 +80,40 @@ func idxMod(x uint32) (idx, mod int) {
 	return int(x >> setBits), int(x & setMesk)
 }
 
-func (s *IntSet) maxIndex() int {
-	return int(atomic.LoadUint32(&s.num))
+func (s *IntSet) getLen() uint32 {
+	return atomic.LoadUint32(&s.len)
+}
+
+func (s *IntSet) getCap() uint32 {
+	return atomic.LoadUint32(&s.cap)
+}
+
+func (s *IntSet) getMax() uint32 {
+	return atomic.LoadUint32(&s.max)
 }
 
 // i must < num
-func (s *IntSet) loadIdx(i int) uint32 {
+func (s *IntSet) load(i int) uint32 {
 	return atomic.LoadUint32(&s.items[i])
 }
 
 // Cap return queue's cap
 func (q *IntSet) Cap() int {
-	return int(atomic.LoadUint32(&q.cap))
+	return int(atomic.LoadUint32(&q.max))
 }
 
 // Load reports whether the set contains the non-negative value x.
 // time complexity: O(1)
 func (s *IntSet) Load(x uint32) bool {
-	if x > atomic.LoadUint32(&s.cap) {
+	if x > s.getMax() {
 		return false
 	}
 	idx, mod := idxMod(x)
-	if idx >= s.maxIndex() {
+	if idx >= int(s.getLen()) {
 		// overflow
 		return false
 	}
-	item := s.loadIdx(idx)
+	item := s.load(idx)
 	// return s.dirty[idx]&(1<<mod) != 0
 	return (item>>mod)&1 == 1
 }
@@ -137,21 +131,39 @@ func (s *IntSet) Store(x uint32) bool {
 // time complexity: O(1)
 func (s *IntSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	s.Init()
-	if x > atomic.LoadUint32(&s.cap) {
+	if x > s.getMax() {
 		return false, false
 	}
 	idx, mod := idxMod(x)
-	if idx >= s.maxIndex() {
-		return false, false
-	}
 
+	// verify and grow the items
+	if !s.verify(idx) {
+		return
+	}
 	for {
-		item := s.loadIdx(idx)
+		item := s.load(idx)
 		if (item>>mod)&1 == 1 {
 			return true, true
 		}
 		if atomic.CompareAndSwapUint32(&s.items[idx], item, item|(1<<mod)) {
 			return false, true
+		}
+	}
+}
+
+func (s *IntSet) verify(idx int) bool {
+	for {
+		slen := s.getLen()
+		if idx < int(slen) {
+			return true
+		}
+		// TODO grow len
+		if idx < int(s.getCap()) {
+			if casUint32(&s.len, uint32(slen), uint32(idx+1)) {
+				return true
+			}
+		} else {
+			return false
 		}
 	}
 }
@@ -169,16 +181,16 @@ func (s *IntSet) Delete(x uint32) bool {
 // time complexity: O(1)
 func (s *IntSet) LoadAndDelete(x uint32) (loaded, ok bool) {
 	s.Init()
-	if x > atomic.LoadUint32(&s.cap) {
+	if x > s.getMax() {
 		return false, false
 	}
 	idx, mod := idxMod(x)
-	if idx >= s.maxIndex() {
+	if idx >= int(s.getLen()) {
 		// overflow
 		return false, false
 	}
 	for {
-		item := s.loadIdx(idx)
+		item := s.load(idx)
 		if (item>>mod)&1 == 0 {
 			return false, true
 		}
@@ -218,9 +230,9 @@ func (s *IntSet) Removes(args ...uint32) {
 // worst time complexity: O(32*N)
 // best  time complexity: O(N)
 func (s *IntSet) Range(f func(x uint32) bool) {
-	sNum := uint32(s.maxIndex())
+	sNum := uint32(s.getLen())
 	for i := 0; i < int(sNum); i++ {
-		item := s.loadIdx(i)
+		item := s.load(i)
 		if item == 0 {
 			continue
 		}
@@ -254,10 +266,11 @@ func (s *IntSet) Len() int {
 // worst time complexity: O(N)
 // best  time complexity: O(1)
 func (s *IntSet) Clear() {
-	sNum := s.maxIndex()
-	for i := 0; i < sNum; i++ {
+	sNum := s.getLen()
+	for i := 0; i < int(sNum); i++ {
 		atomic.StoreUint32(&s.items[i], 0)
 	}
+	casUint32(&s.len, sNum, 0)
 }
 
 // Copy return a copy of the set
@@ -266,8 +279,8 @@ func (s *IntSet) Clear() {
 func (s *IntSet) Copy() *IntSet {
 	var n IntSet
 	n.OnceInit(s.Cap())
-	for i := 0; i < s.maxIndex(); i++ {
-		n.items[i] = s.loadIdx(i)
+	for i := 0; i < int(s.getLen()); i++ {
+		n.items[i] = s.load(i)
 	}
 	return &n
 }
@@ -276,11 +289,11 @@ func (s *IntSet) Copy() *IntSet {
 // worst time complexity: O(N)
 // best  time complexity: O(1)
 func (s *IntSet) Null() bool {
-	if s.maxIndex() == 0 {
+	if s.getLen() == 0 {
 		return true
 	}
-	for i := 0; i < s.maxIndex(); i++ {
-		item := s.loadIdx(i)
+	for i := 0; i < int(s.getLen()); i++ {
+		item := s.load(i)
 		if item != 0 {
 			return false
 		}
@@ -293,7 +306,7 @@ func (s *IntSet) Null() bool {
 // best  time complexity: O(N)
 func (s *IntSet) Items() []uint32 {
 	sum := 0
-	sNum := s.maxIndex()
+	sNum := s.getLen()
 	array := make([]uint32, 0, sNum*platform)
 	s.Range(func(x uint32) bool {
 		array = append(array, x)
@@ -455,7 +468,9 @@ func (s *SliceSet) LoadOrStore(x uint32) (loaded, ok bool) {
 		return
 	}
 	idx, mod := idxModS(x)
-	s.check(idx)
+	if !s.verify(idx) {
+		return
+	}
 	var n *node
 	for {
 		n = s.getNode()
@@ -478,9 +493,9 @@ func (n *node) evacuted(idx int) bool {
 	return atomic.LoadUint32(&n.data[idx])&freezeBit > 0
 }
 
-// check idx if large len,cap
+// verify idx if large len,cap
 // if idx=cap,need grow
-func (s *SliceSet) check(idx int) {
+func (s *SliceSet) verify(idx int) bool {
 	for {
 		n := s.getNode()
 		nlen := n.getLen()
@@ -494,10 +509,16 @@ func (s *SliceSet) check(idx int) {
 			}
 		}
 		if growWork(s, n, uint32(idx+1)) {
+			n := s.getNode()
+			if idx >= int(n.getCap()) {
+				// check if cap overflow
+				return false
+			}
 			break
 		}
 		runtime.Gosched()
 	}
+	return true
 }
 
 func growWork(s *SliceSet, old *node, cap uint32) bool {
@@ -671,7 +692,7 @@ func (s *SliceSet) Clear() {
 
 // i must < num
 func (s *SliceSet) store(i int, val uint32) {
-	s.check(i)
+	s.verify(i)
 	s.getNode().store(i, val)
 }
 
