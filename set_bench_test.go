@@ -14,17 +14,17 @@ const (
 )
 
 type bench struct {
-	setup func(*testing.B, setInterface)
-	perG  func(b *testing.B, pb *testing.PB, i int, m setInterface)
+	setup func(*testing.B, Interface)
+	perG  func(b *testing.B, pb *testing.PB, i int, m Interface)
 }
 
 func benchMap(b *testing.B, bench bench) {
-	for _, m := range [...]setInterface{
+	for _, m := range [...]Interface{
 		&set.IntSet{},
 		&MutexSet{},
 	} {
 		b.Run(fmt.Sprintf("%T", m), func(b *testing.B) {
-			m = reflect.New(reflect.TypeOf(m).Elem()).Interface().(setInterface)
+			m = reflect.New(reflect.TypeOf(m).Elem()).Interface().(Interface)
 			// setup
 			if bench.setup != nil {
 				bench.setup(b, m)
@@ -44,14 +44,14 @@ func BenchmarkLoadMostlyHits(b *testing.B) {
 	const hits, misses = 1023, 1
 
 	benchMap(b, bench{
-		setup: func(_ *testing.B, m setInterface) {
+		setup: func(_ *testing.B, m Interface) {
 			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				m.Load(uint32(i % (hits + misses)))
 			}
@@ -63,14 +63,14 @@ func BenchmarkLoadMostlyMisses(b *testing.B) {
 	const hits, misses = 1, 1023
 
 	benchMap(b, bench{
-		setup: func(_ *testing.B, m setInterface) {
+		setup: func(_ *testing.B, m Interface) {
 			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				m.Load(uint32(i % (hits + misses)))
 			}
@@ -82,14 +82,14 @@ func BenchmarkLoadOrStoreBalanced(b *testing.B) {
 	const hits, misses = 128, 128
 
 	benchMap(b, bench{
-		setup: func(b *testing.B, m setInterface) {
+		setup: func(b *testing.B, m Interface) {
 			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				j := i % (hits + misses)
 				if j < hits {
@@ -108,10 +108,10 @@ func BenchmarkLoadOrStoreBalanced(b *testing.B) {
 
 func BenchmarkLoadOrStoreUnique(b *testing.B) {
 	benchMap(b, bench{
-		setup: func(b *testing.B, m setInterface) {
+		setup: func(b *testing.B, m Interface) {
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				if i > m.Cap() {
 					b.Fatalf("i>cap:%d,%d", i, m.Cap())
@@ -124,12 +124,12 @@ func BenchmarkLoadOrStoreUnique(b *testing.B) {
 
 func BenchmarkLoadOrStoreCollision(b *testing.B) {
 	benchMap(b, bench{
-		setup: func(_ *testing.B, m setInterface) {
+		setup: func(_ *testing.B, m Interface) {
 			m.OnceInit(1 << 10)
 			m.LoadOrStore(uint32(0))
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				m.LoadOrStore(uint32(0))
 			}
@@ -141,14 +141,14 @@ func BenchmarkLoadAndDeleteBalanced(b *testing.B) {
 	const hits, misses = 128, 128
 
 	benchMap(b, bench{
-		setup: func(b *testing.B, m setInterface) {
+		setup: func(b *testing.B, m Interface) {
 			m.OnceInit(1 << 10)
 			for i := 0; i < hits; i++ {
 				m.LoadOrStore(uint32(i))
 			}
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				j := i % (hits + misses)
 				if j < hits {
@@ -163,13 +163,13 @@ func BenchmarkLoadAndDeleteBalanced(b *testing.B) {
 
 func BenchmarkLoadAndDeleteUnique(b *testing.B) {
 	benchMap(b, bench{
-		setup: func(b *testing.B, m setInterface) {
+		setup: func(b *testing.B, m Interface) {
 			for i := 0; i < m.Cap(); i++ {
 				m.Store(uint32(i))
 			}
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				if i > m.Cap() {
 					b.Fatalf("i>cap:%d,%d", i, m.Cap())
@@ -182,12 +182,12 @@ func BenchmarkLoadAndDeleteUnique(b *testing.B) {
 
 func BenchmarkLoadAndDeleteCollision(b *testing.B) {
 	benchMap(b, bench{
-		setup: func(_ *testing.B, m setInterface) {
+		setup: func(_ *testing.B, m Interface) {
 			m.OnceInit(1 << 10)
 			m.LoadOrStore(0)
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				m.LoadAndDelete(0)
 			}
@@ -199,13 +199,13 @@ func BenchmarkRange(b *testing.B) {
 	const mapSize = 1 << 10
 
 	benchMap(b, bench{
-		setup: func(_ *testing.B, m setInterface) {
+		setup: func(_ *testing.B, m Interface) {
 			for i := 0; i < mapSize; i++ {
 				m.Store(uint32(i))
 			}
 		},
 
-		perG: func(b *testing.B, pb *testing.PB, i int, m setInterface) {
+		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
 				m.Range(func(x uint32) bool { return true })
 			}

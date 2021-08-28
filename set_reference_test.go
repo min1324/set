@@ -5,16 +5,19 @@ import (
 	"sync/atomic"
 )
 
-type setInterface interface {
+type Interface interface {
 	OnceInit(cap int)
 	Cap() int
 	Len() int
+	Clear()
+	Null() bool
 	Load(x uint32) bool
 	Store(x uint32) bool
 	LoadOrStore(x uint32) (loaded, ok bool)
 	LoadAndDelete(x uint32) (loaded, ok bool)
 	Delete(x uint32) bool
 	Range(f func(x uint32) bool)
+	Items() []uint32
 }
 
 const (
@@ -24,8 +27,6 @@ const (
 	setMesk  = 1<<setBits - 1
 
 	maxItem uint32 = 1 << 24 * 31
-
-	initCap = 8
 )
 
 type MutexSet struct {
@@ -192,4 +193,39 @@ func (s *MutexSet) Len() int {
 		return true
 	})
 	return sum
+}
+
+func (s *MutexSet) Clear() {
+	s.mu.Lock()
+	for i := 0; i < int(s.len); i++ {
+		s.items[i] = 0
+	}
+	s.len = 0
+	s.mu.Unlock()
+}
+
+func (s *MutexSet) Null() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.len == 0 {
+		return true
+	}
+	for i := 0; i < int(s.len); i++ {
+		if s.items[i] != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *MutexSet) Items() []uint32 {
+	sum := 0
+	sNum := s.len
+	array := make([]uint32, 0, sNum*platform)
+	s.Range(func(x uint32) bool {
+		array = append(array, x)
+		sum += 1
+		return true
+	})
+	return array[:sum]
 }
