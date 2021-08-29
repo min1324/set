@@ -590,18 +590,20 @@ func (c setCall) raceCall(s Interface) {
 	case opItems:
 		s.Items()
 	default:
-		panic("invalid mapOp")
+		panic("invalid mapOp:" + c.op)
 	}
-}
-
-func generate(r *rand.Rand) *setCall {
-	return &setCall{op: setOps[rand.Intn(len(setOps))], k: randValue(r)}
 }
 
 func TestRace(t *testing.T) {
 	var goNum = runtime.NumCPU()
 	var wg sync.WaitGroup
 	var r = rand.New(rand.NewSource(time.Now().Unix()))
+	var max = 100000
+
+	args := make([]setCall, goNum*max)
+	for i := range args {
+		args[i].k, args[i].op = randValue(r), raceOps[rand.Intn(len(raceOps))]
+	}
 
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
@@ -613,14 +615,15 @@ func TestRace(t *testing.T) {
 		run: func(t *testing.T, s Interface) {
 			wg.Add(goNum)
 			for i := 0; i < goNum; i++ {
-				go func() {
+				j := i
+				go func(j int) {
 					defer wg.Done()
-					for i := 0; i < 100000; i++ {
-						generate(r).raceCall(s)
+					for i := 0; i < max; i++ {
+						args[i+j*max].raceCall(s)
 					}
-				}()
+				}(j)
 			}
-			wg.Done()
+			wg.Wait()
 		},
 	})
 }
@@ -709,7 +712,7 @@ func TestConcurrentDelete(t *testing.T) {
 	})
 }
 
-func TestConcurrent(t *testing.T) {
+func TestConcurrentRace(t *testing.T) {
 	var wg sync.WaitGroup
 	goNum := runtime.NumCPU()
 	var max = 1000000
@@ -753,7 +756,7 @@ func TestConcurrent(t *testing.T) {
 						if c >= uint32(max) {
 							break
 						}
-						s.Delete(atomic.LoadUint32(&strargs[c]))
+						s.Store(atomic.LoadUint32(&strargs[c]))
 					}
 				}()
 			}

@@ -75,6 +75,18 @@ func (s *MutexSet) Init() {
 	s.onceInit(0)
 }
 
+func (s *MutexSet) load(i int) uint32 {
+	return atomic.LoadUint32(&s.items[i])
+}
+
+func (q *MutexSet) getLen() uint32 {
+	return atomic.LoadUint32(&q.len)
+}
+
+func (q *MutexSet) getCap() uint32 {
+	return atomic.LoadUint32(&q.cap)
+}
+
 // Cap return queue's cap
 func (q *MutexSet) Cap() int {
 	return int(atomic.LoadUint32(&q.max))
@@ -97,10 +109,11 @@ func (s *MutexSet) Load(x uint32) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	idx, mod := idxMod(x)
-	if idx >= int(s.len) {
+	if idx >= int(s.getLen()) {
 		return false
 	}
-	return (s.items[idx]>>mod)&1 == 1
+	item := s.load(idx)
+	return (item>>mod)&1 == 1
 
 }
 
@@ -122,20 +135,20 @@ func (s *MutexSet) LoadOrStore(x uint32) (loaded, ok bool) {
 		return
 	}
 
-	item := s.items[idx]
+	item := s.load(idx)
 	if (item>>mod)&1 == 1 {
 		return true, true
 	}
-	s.items[idx] |= 1 << mod
+	atomic.StoreUint32(&s.items[idx], item|1<<mod)
 	return false, true
 }
 
 func (s *MutexSet) verify(idx int) bool {
-	slen := atomic.LoadUint32(&s.len)
+	slen := int(s.getLen())
 	if idx < int(slen) {
 		return true
 	}
-	if idx < int(s.cap) {
+	if idx < int(s.getCap()) {
 		atomic.StoreUint32(&s.len, uint32(idx+1))
 	} else {
 		// grow
@@ -162,11 +175,11 @@ func (s *MutexSet) verify(idx int) bool {
 		}
 		data := make([]uint32, newCap)
 		for i := 0; i < int(oldCap); i++ {
-			data[i] = s.items[i]
+			data[i] = s.load(idx)
 		}
 		s.items = data
-		s.len = uint32(idx)
-		s.cap = uint32(newCap)
+		atomic.StoreUint32(&s.len, uint32(idx))
+		atomic.StoreUint32(&s.cap, newCap)
 	}
 	return true
 }
@@ -185,21 +198,21 @@ func (s *MutexSet) LoadAndDelete(x uint32) (loaded, ok bool) {
 	defer s.mu.Unlock()
 
 	idx, mod := idxMod(x)
-	if idx >= int(atomic.LoadUint32(&s.len)) {
+	if idx >= int(s.getLen()) {
 		return false, false
 	}
-	item := s.items[idx]
+	item := s.load(idx)
 	if (item>>mod)&1 == 0 {
 		return false, true
 	}
-	s.items[idx] &^= 1 << mod
+	atomic.StoreUint32(&s.items[idx], item&^(1<<mod))
 	return true, true
 }
 
 func (s *MutexSet) Range(f func(x uint32) bool) {
-	slen := len(s.items)
-	for i := 0; i < slen; i++ {
-		item := s.items[i]
+	slen := s.getLen()
+	for i := 0; i < int(slen); i++ {
+		item := s.load(i)
 		if item == 0 {
 			continue
 		}
@@ -231,21 +244,21 @@ func (s *MutexSet) Len() int {
 
 func (s *MutexSet) Clear() {
 	s.mu.Lock()
-	for i := 0; i < int(s.len); i++ {
-		s.items[i] = 0
+	for i := 0; i < int(s.getLen()); i++ {
+		atomic.StoreUint32(&s.items[i], 0)
 	}
-	s.len = 0
+	atomic.StoreUint32(&s.len, 0)
 	s.mu.Unlock()
 }
 
 func (s *MutexSet) Null() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.len == 0 {
+	if s.getLen() == 0 {
 		return true
 	}
-	for i := 0; i < int(s.len); i++ {
-		if s.items[i] != 0 {
+	for i := 0; i < int(s.getLen()); i++ {
+		if s.load(i) != 0 {
 			return false
 		}
 	}
@@ -254,7 +267,7 @@ func (s *MutexSet) Null() bool {
 
 func (s *MutexSet) Items() []uint32 {
 	sum := 0
-	sNum := s.len
+	sNum := s.getLen()
 	array := make([]uint32, 0, sNum*platform)
 	s.Range(func(x uint32) bool {
 		array = append(array, x)
