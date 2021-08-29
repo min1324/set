@@ -763,11 +763,6 @@ func TestConcurrentRace(t *testing.T) {
 			// wait until finish
 			wg.Wait()
 
-			// check
-			s.Range(func(x uint32) bool {
-				t.Fatalf("delete err:%d", x)
-				return false
-			})
 		},
 	})
 }
