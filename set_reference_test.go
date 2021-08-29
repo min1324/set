@@ -26,7 +26,8 @@ const (
 	platform = 1 << setBits
 	setMesk  = 1<<setBits - 1
 
-	maxItem uint32 = 1 << 24 * 31
+	maxItem  uint32 = 1 << 24 * 31
+	initSize        = 1 << 8
 )
 
 type MutexSet struct {
@@ -48,8 +49,12 @@ func (s *MutexSet) onceInit(max int) {
 	s.once.Do(func() {
 		var cap uint32 = uint32(max>>5 + 1)
 		if max < 1 {
+			max = initSize
+			cap = initSize>>5 + 1
+		}
+		if max > int(maxItem) {
 			max = int(maxItem)
-			cap = initCap
+			cap = 8
 		}
 		s.items = make([]uint32, cap)
 		s.cap = uint32(cap)
@@ -113,20 +118,8 @@ func (s *MutexSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	defer s.mu.Unlock()
 
 	idx, mod := idxMod(x)
-	if idx >= int(s.len) {
-		if idx < int(s.cap) {
-			atomic.StoreUint32(&s.len, uint32(idx+1))
-		} else {
-			// grow
-			newCap := idx + 1
-			data := make([]uint32, newCap)
-			for i := 0; i < int(s.cap); i++ {
-				data[i] = s.items[i]
-			}
-			s.items = data
-			s.cap = uint32(newCap)
-			s.len = uint32(idx + 1)
-		}
+	if !s.verify(idx) {
+		return
 	}
 
 	item := s.items[idx]
@@ -135,6 +128,47 @@ func (s *MutexSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	}
 	s.items[idx] |= 1 << mod
 	return false, true
+}
+
+func (s *MutexSet) verify(idx int) bool {
+	slen := atomic.LoadUint32(&s.len)
+	if idx < int(slen) {
+		return true
+	}
+	if idx < int(s.cap) {
+		atomic.StoreUint32(&s.len, uint32(idx+1))
+	} else {
+		// grow
+		oldCap := atomic.LoadUint32(&s.cap)
+		newCap := oldCap
+		doubleCap := newCap << 1
+		if uint32(idx) > doubleCap {
+			newCap = uint32(idx)
+		} else {
+			if newCap < 1024 {
+				newCap = doubleCap
+			} else {
+				// Check 0 < newcap to detect overflow
+				// and prevent an infinite loop.
+				for 0 < newCap && newCap < uint32(idx) {
+					newCap += newCap / 4
+				}
+				// Set newcap to the requested cap when
+				// the newcap calculation overflowed.
+				if newCap <= 0 {
+					newCap = uint32(idx)
+				}
+			}
+		}
+		data := make([]uint32, newCap)
+		for i := 0; i < int(oldCap); i++ {
+			data[i] = s.items[i]
+		}
+		s.items = data
+		s.len = uint32(idx)
+		s.cap = uint32(newCap)
+	}
+	return true
 }
 
 func (s *MutexSet) Delete(x uint32) bool {

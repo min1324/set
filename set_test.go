@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/quick"
 	"time"
@@ -58,7 +59,7 @@ type setResult struct {
 }
 
 func randValue(r *rand.Rand) uint32 {
-	return uint32(rand.Int31n(32 << 5))
+	return uint32(rand.Int31n(32 << 4))
 }
 
 func (setCall) Generate(r *rand.Rand, size int) reflect.Value {
@@ -100,7 +101,7 @@ func TestIntSetMatchsSlice(t *testing.T) {
 }
 
 func TestIntSetMatchsMutex(t *testing.T) {
-	if err := quick.CheckEqual(applyIntSet, applyMutex, nil); err != nil {
+	if err := quick.CheckEqual(applyIntSet, applyMutex, &quick.Config{MaxCountScale: 10}); err != nil {
 		t.Error(err)
 	}
 }
@@ -620,6 +621,150 @@ func TestRace(t *testing.T) {
 				}()
 			}
 			wg.Done()
+		},
+	})
+}
+
+func TestConcurrentStore(t *testing.T) {
+	var wg sync.WaitGroup
+	goNum := runtime.NumCPU()
+	var max = 1000000
+
+	queueMap(t, setStruct{
+		setup: func(t *testing.T, s Interface) {
+			s.OnceInit(max)
+		},
+		run: func(t *testing.T, s Interface) {
+			// enqueue
+			wg.Add(goNum)
+			var gbCount uint32 = 0
+			for i := 0; i < goNum; i++ {
+				go func() {
+					defer wg.Done()
+					for {
+						c := atomic.AddUint32(&gbCount, 1)
+						if c >= uint32(max) {
+							break
+						}
+						s.Store(c)
+					}
+				}()
+			}
+			// wait until finish
+			wg.Wait()
+
+			var count uint32 = 1
+			// check
+			s.Range(func(x uint32) bool {
+				if x != count {
+					t.Fatalf("store err:%d,%d", x, count)
+					return false
+				}
+				count += 1
+				return true
+			})
+		},
+	})
+}
+
+func TestConcurrentDelete(t *testing.T) {
+	var wg sync.WaitGroup
+	goNum := runtime.NumCPU()
+	var max = 1000000
+
+	queueMap(t, setStruct{
+		setup: func(t *testing.T, s Interface) {
+			s.OnceInit(max)
+			for i := 1; i < max; i++ {
+				if !s.Store(uint32(i)) {
+					t.Fatalf("store err:%d", i)
+				}
+			}
+		},
+		run: func(t *testing.T, s Interface) {
+			// enqueue
+			wg.Add(goNum)
+			var gbCount uint32 = 0
+			for i := 0; i < goNum; i++ {
+				go func() {
+					defer wg.Done()
+					for {
+						c := atomic.AddUint32(&gbCount, 1)
+						if c >= uint32(max) {
+							break
+						}
+						s.Delete(c)
+					}
+				}()
+			}
+			// wait until finish
+			wg.Wait()
+
+			// check
+			s.Range(func(x uint32) bool {
+				t.Fatalf("delete err:%d", x)
+				return false
+			})
+		},
+	})
+}
+
+func TestConcurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	goNum := runtime.NumCPU()
+	var max = 1000000
+
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	delargs := make([]uint32, max)
+	strargs := make([]uint32, max)
+	for i := 0; i < max; i++ {
+		delargs[i] = uint32(r.Int63n(int64(max)))
+		strargs[i] = uint32(r.Int63n(int64(max)))
+	}
+
+	queueMap(t, setStruct{
+		setup: func(t *testing.T, s Interface) {
+			s.OnceInit(max)
+		},
+		run: func(t *testing.T, s Interface) {
+			// delete
+			wg.Add(goNum)
+			var delCount uint32 = 0
+			for i := 0; i < goNum; i++ {
+				go func() {
+					defer wg.Done()
+					for {
+						c := atomic.AddUint32(&delCount, 1)
+						if c >= uint32(max) {
+							break
+						}
+						s.Delete(atomic.LoadUint32(&delargs[c]))
+					}
+				}()
+			}
+			// delete
+			wg.Add(goNum)
+			var strCount uint32 = 0
+			for i := 0; i < goNum; i++ {
+				go func() {
+					defer wg.Done()
+					for {
+						c := atomic.AddUint32(&strCount, 1)
+						if c >= uint32(max) {
+							break
+						}
+						s.Delete(atomic.LoadUint32(&strargs[c]))
+					}
+				}()
+			}
+			// wait until finish
+			wg.Wait()
+
+			// check
+			s.Range(func(x uint32) bool {
+				t.Fatalf("delete err:%d", x)
+				return false
+			})
 		},
 	})
 }

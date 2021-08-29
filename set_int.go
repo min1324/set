@@ -48,6 +48,9 @@ func (s *IntSet) onceInit(max int) {
 		if max < 1 {
 			max = initSize
 		}
+		if max > int(maxItem) {
+			max = int(maxItem)
+		}
 		num := max>>5 + 1
 		s.items = make([]uint32, num)
 		atomic.StoreUint32(&s.len, uint32(num))
@@ -500,25 +503,20 @@ func (s *SliceSet) verify(idx int) bool {
 		n := s.getNode()
 		nlen := n.getLen()
 		if idx < int(nlen) {
-			break
+			return true
 		}
 		ncap := n.getCap()
 		if idx < int(ncap) {
 			if atomic.CompareAndSwapUint32(&n.len, nlen, uint32(idx+1)) {
-				break
+				return true
 			}
 		}
 		if growWork(s, n, uint32(idx+1)) {
 			n := s.getNode()
-			if idx >= int(n.getCap()) {
-				// check if cap overflow
-				return false
-			}
-			break
+			return idx < int(n.getCap())
 		}
 		runtime.Gosched()
 	}
-	return true
 }
 
 func growWork(s *SliceSet, old *node, cap uint32) bool {
