@@ -372,6 +372,7 @@ func (s *SliceSet) Clear() {
 	for i := 0; i < int(sNum); i++ {
 		s.store(i, 0)
 	}
+	atomic.StoreUint32(&s.count, 0)
 	atomic.CompareAndSwapUint32(&n.len, sNum, 0)
 }
 

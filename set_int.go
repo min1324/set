@@ -295,6 +295,7 @@ func (s *IntSet) Clear() {
 	for i := 0; i < int(sLen); i++ {
 		atomic.StoreUint32(&s.items[i], 0)
 	}
+	atomic.StoreUint32(&s.count, 0)
 	atomic.CompareAndSwapUint32(&s.len, sLen, 0)
 }
 
