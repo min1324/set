@@ -51,7 +51,7 @@ func (s *SliceSet) onceInit(max int) {
 	s.once.Do(func() {
 		var n *node
 		var cap uint32 = uint32(max>>5 + 1)
-		if max < 1 {
+		if max < 1 || max > int(maximum) {
 			max = int(maximum)
 			cap = initCap
 		}
@@ -63,12 +63,12 @@ func (s *SliceSet) onceInit(max int) {
 
 // OnceInit initialize set use max
 // it only execute once time.
-// if max<1, will use 256.
+// if max<1, will use maximum.
 func (s *SliceSet) OnceInit(max int) {
 	s.onceInit(max)
 }
 
-// Init initialize IntSet use default max: 256
+// Init initialize IntSet use maximum
 // it only execute once time.
 func (s *SliceSet) Init() {
 	s.OnceInit(0)
@@ -140,7 +140,7 @@ func (s *SliceSet) Store(x uint32) bool {
 // loaded report x if in set,ok report if x overflow
 // time complexity: O(1)
 func (s *SliceSet) LoadOrStore(x uint32) (loaded, ok bool) {
-	s.Init()
+	s.onceInit(0)
 	if x > s.getMax() {
 		// overflow
 		return

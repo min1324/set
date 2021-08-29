@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	preInitSize = 1 << 30
+	preInitSize = 1 << 25
 )
 
 type bench struct {
@@ -21,6 +21,7 @@ type bench struct {
 func benchMap(b *testing.B, bench bench) {
 	for _, m := range [...]Interface{
 		&set.IntSet{},
+		&set.SliceSet{},
 		&MutexSet{},
 	} {
 		b.Run(fmt.Sprintf("%T", m), func(b *testing.B) {
@@ -113,9 +114,6 @@ func BenchmarkLoadOrStoreUnique(b *testing.B) {
 
 		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
-				if i > m.Cap() {
-					b.Fatalf("i>cap:%d,%d", i, m.Cap())
-				}
 				m.LoadOrStore(uint32(i))
 			}
 		},
@@ -171,9 +169,6 @@ func BenchmarkLoadAndDeleteUnique(b *testing.B) {
 
 		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
 			for ; pb.Next(); i++ {
-				if i > m.Cap() {
-					b.Fatalf("i>cap:%d,%d", i, m.Cap())
-				}
 				m.LoadAndDelete(uint32(i))
 			}
 		},

@@ -75,7 +75,7 @@ func (s *IntSet) OnceInit(max int) {
 // Init initialize IntSet use default max: 256
 // it only execute once time.
 func (s *IntSet) Init() {
-	s.OnceInit(0)
+	s.onceInit(initSize)
 }
 
 // in 64 bit platform
@@ -140,7 +140,7 @@ func (s *IntSet) Store(x uint32) bool {
 // loaded report x if in set,ok report x if overflow
 // time complexity: O(1)
 func (s *IntSet) LoadOrStore(x uint32) (loaded, ok bool) {
-	s.Init()
+	s.onceInit(initSize)
 	if x > s.getMax() {
 		// overflow
 		return false, false
@@ -194,10 +194,10 @@ func (s *IntSet) Delete(x uint32) bool {
 // loaded report x if in set,ok report x if overflow
 // time complexity: O(1)
 func (s *IntSet) LoadAndDelete(x uint32) (loaded, ok bool) {
-	s.Init()
 	if x > s.getMax() {
 		return false, false
 	}
+	s.onceInit(initSize)
 	idx, mod := idxMod(x)
 	if idx >= int(s.getLen()) {
 		// overflow
