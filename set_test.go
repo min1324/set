@@ -25,7 +25,6 @@ const (
 	opRange         = setOp("Range")
 	opLen           = setOp("Len")
 	opClear         = setOp("Clear")
-	opCopy          = setOp("Copy")
 	opNull          = setOp("Null")
 	opItems         = setOp("Items")
 )
@@ -49,7 +48,7 @@ func (c setCall) apply(m Interface) (uint32, bool) {
 		l, _ := m.LoadAndDelete(c.k)
 		return c.k, l
 	default:
-		panic("invalid mapOp")
+		panic("invalid setOp")
 	}
 }
 
@@ -333,7 +332,9 @@ func TestItems(t *testing.T) {
 }
 
 func TestEqual(t *testing.T) {
-	q := getIntSet(initCap, initM, initN)
+	iq := getIntSet(initCap, initM, initN)
+	sq := getIntSet(initCap, initM, initN)
+	mq := getIntSet(initCap, initM, initN)
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
 			s.OnceInit(initCap)
@@ -343,10 +344,16 @@ func TestEqual(t *testing.T) {
 		},
 		run: func(t *testing.T, s Interface) {
 			if !set.Equal(s, s) {
-				t.Fatalf("Equal err, s!=s")
+				t.Errorf("Equal err, s!=s")
 			}
-			if !set.Equal(s, q) {
-				t.Fatalf("Equal err, s!=q")
+			if !set.Equal(s, iq) {
+				t.Errorf("Equal Int err, s!=iq")
+			}
+			if !set.Equal(s, sq) {
+				t.Errorf("Equal Slice err, s!=sq")
+			}
+			if !set.Equal(s, mq) {
+				t.Errorf("Equal Mutex err, s!=mq")
 			}
 		},
 	})
@@ -359,11 +366,11 @@ func TestUnion(t *testing.T) {
 
 	sq := getSliceSet(10, 2, 8)
 	sr := getSliceSet(10, 0, 8)
-	se := getIntSet(10, 0, 8)
+	se := getSliceSet(10, 0, 8)
 
 	mq := getMutexSet(10, 2, 8)
 	mr := getMutexSet(10, 0, 8)
-	me := getIntSet(10, 0, 8)
+	me := getMutexSet(10, 0, 8)
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
 			s.OnceInit(10)
@@ -374,29 +381,29 @@ func TestUnion(t *testing.T) {
 		run: func(t *testing.T, s Interface) {
 			ip := set.Union(s, iq)
 			if !set.Equal(ip, ir) {
-				t.Fatalf("union err:%v,%v", ir, ip)
+				t.Errorf("union Int err:%v,%v", ir, ip)
 			}
 			io := set.Union(iq, s)
 			if !set.Equal(io, ie) {
-				t.Fatalf("union err:%v,%v", ie, io)
+				t.Errorf("union Int err:%v,%v", ie, io)
 			}
 
 			sp := set.Union(s, sq)
 			if !set.Equal(sp, sr) {
-				t.Fatalf("union err:%v,%v", sr, sp)
+				t.Errorf("union Slice err:%v,%v", sr, sp)
 			}
 			so := set.Union(sq, s)
 			if !set.Equal(so, se) {
-				t.Fatalf("union err:%v,%v", se, so)
+				t.Errorf("union Slice err:%v,%v", se, so)
 			}
 
 			mp := set.Union(s, mq)
 			if !set.Equal(mp, mr) {
-				t.Fatalf("union err:%v,%v", mr, mp)
+				t.Errorf("union Mutex err:%v,%v", mr, mp)
 			}
 			mo := set.Union(mq, s)
 			if !set.Equal(mo, me) {
-				t.Fatalf("union err:%v,%v", me, mo)
+				t.Errorf("union Mutex err:%v,%v", me, mo)
 			}
 
 		},
@@ -425,29 +432,29 @@ func TestIntersect(t *testing.T) {
 		run: func(t *testing.T, s Interface) {
 			ip := set.Intersect(s, iq)
 			if !set.Equal(ip, ir) {
-				t.Fatalf("Intersect err:%v,%v", ip, ir)
+				t.Errorf("Intersect Int err:%v,%v", ip, ir)
 			}
 			io := set.Intersect(iq, s)
 			if !set.Equal(io, ie) {
-				t.Fatalf("Intersect err:%v,%v", ie, io)
+				t.Errorf("Intersect Int err:%v,%v", ie, io)
 			}
 
 			sp := set.Intersect(s, sq)
 			if !set.Equal(sp, sr) {
-				t.Fatalf("Intersect err:%v,%v", sp, sr)
+				t.Errorf("Intersect Slice err:%v,%v", sp, sr)
 			}
 			so := set.Intersect(sq, s)
 			if !set.Equal(so, se) {
-				t.Fatalf("Intersect err:%v,%v", se, so)
+				t.Errorf("Intersect Slice err:%v,%v", se, so)
 			}
 
 			mp := set.Intersect(s, mq)
 			if !set.Equal(mp, mr) {
-				t.Fatalf("Intersect err:%v,%v", mp, mr)
+				t.Errorf("Intersect Mutex err:%v,%v", mp, mr)
 			}
 			mo := set.Intersect(mq, s)
 			if !set.Equal(mo, me) {
-				t.Fatalf("Intersect err:%v,%v", me, mo)
+				t.Errorf("Intersect Mutex err:%v,%v", me, mo)
 			}
 		},
 	})
@@ -460,11 +467,11 @@ func TestDifference(t *testing.T) {
 
 	sq := getSliceSet(10, 2, 8)
 	sr := getSliceSet(10, 0, 2)
-	se := getIntSet(10, 5, 8)
+	se := getSliceSet(10, 5, 8)
 
 	mq := getMutexSet(10, 2, 8)
 	mr := getMutexSet(10, 0, 2)
-	me := getIntSet(10, 5, 8)
+	me := getMutexSet(10, 5, 8)
 
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
@@ -476,29 +483,29 @@ func TestDifference(t *testing.T) {
 		run: func(t *testing.T, s Interface) {
 			ip := set.Difference(s, iq)
 			if !set.Equal(ip, ir) {
-				t.Fatalf("Difference err:%v,%v", ir, ip)
+				t.Errorf("Difference Int err:%v,%v", ir, ip)
 			}
 			io := set.Difference(iq, s)
 			if !set.Equal(io, ie) {
-				t.Fatalf("Difference err:%v,%v", ie, io)
+				t.Errorf("Difference Int err:%v,%v", ie, io)
 			}
 
 			sp := set.Difference(s, sq)
 			if !set.Equal(sp, sr) {
-				t.Fatalf("Difference err:%v,%v", sr, sp)
+				t.Errorf("Difference Slice err:%v,%v", sr, sp)
 			}
 			so := set.Difference(sq, s)
 			if !set.Equal(so, se) {
-				t.Fatalf("Difference err:%v,%v", se, so)
+				t.Errorf("Difference Slice err:%v,%v", se, so)
 			}
 
 			mp := set.Difference(s, mq)
 			if !set.Equal(mp, mr) {
-				t.Fatalf("Difference err:%v,%v", mr, mp)
+				t.Errorf("Difference Mutex err:%v,%v", mr, mp)
 			}
 			mo := set.Difference(mq, s)
 			if !set.Equal(mo, me) {
-				t.Fatalf("Difference err:%v,%v", me, mo)
+				t.Errorf("Difference Mutex err:%v,%v", me, mo)
 			}
 		},
 	})
@@ -509,13 +516,13 @@ func TestComplement(t *testing.T) {
 	ir := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
 	ie := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
 
-	sq := getIntSet(10, 2, 8)
-	sr := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
-	se := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
+	sq := getSliceSet(10, 2, 8)
+	sr := set.Union(getSliceSet(10, 0, 2), getSliceSet(10, 5, 8))
+	se := set.Union(getSliceSet(10, 0, 2), getSliceSet(10, 5, 8))
 
-	mq := getIntSet(10, 2, 8)
-	mr := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
-	me := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
+	mq := getMutexSet(10, 2, 8)
+	mr := set.Union(getMutexSet(10, 0, 2), getMutexSet(10, 5, 8))
+	me := set.Union(getMutexSet(10, 0, 2), getMutexSet(10, 5, 8))
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
 			s.OnceInit(10)
@@ -526,29 +533,29 @@ func TestComplement(t *testing.T) {
 		run: func(t *testing.T, s Interface) {
 			ip := set.Complement(s, iq)
 			if !set.Equal(ip, ir) {
-				t.Fatalf("Complement err:%v,%v", ir, ip)
+				t.Errorf("Complement Int err:%v,%v", ir, ip)
 			}
 			io := set.Complement(iq, s)
 			if !set.Equal(io, ie) {
-				t.Fatalf("Complement err:%v,%v", ie, io)
+				t.Errorf("Complement Int err:%v,%v", ie, io)
 			}
 
 			sp := set.Complement(s, sq)
 			if !set.Equal(sp, sr) {
-				t.Fatalf("Complement err:%v,%v", sr, sp)
+				t.Errorf("Complement Slice err:%v,%v", sr, sp)
 			}
 			so := set.Complement(sq, s)
 			if !set.Equal(so, se) {
-				t.Fatalf("Complement err:%v,%v", se, so)
+				t.Errorf("Complement Slice err:%v,%v", se, so)
 			}
 
 			mp := set.Complement(s, mq)
 			if !set.Equal(mp, mr) {
-				t.Fatalf("Complement err:%v,%v", mr, mp)
+				t.Errorf("Complement Mutex err:%v,%v", mr, mp)
 			}
 			mo := set.Complement(mq, s)
 			if !set.Equal(mo, me) {
-				t.Fatalf("Complement err:%v,%v", me, mo)
+				t.Errorf("Complement Mutex err:%v,%v", me, mo)
 			}
 		},
 	})
@@ -598,7 +605,7 @@ func TestRace(t *testing.T) {
 	var goNum = runtime.NumCPU()
 	var wg sync.WaitGroup
 	var r = rand.New(rand.NewSource(time.Now().Unix()))
-	var max = 100000
+	var max = 10000
 
 	args := make([]setCall, goNum*max)
 	for i := range args {
