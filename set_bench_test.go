@@ -20,8 +20,8 @@ type bench struct {
 
 func benchMap(b *testing.B, bench bench) {
 	for _, m := range [...]Interface{
-		&set.IntSet{},
 		&set.SliceSet{},
+		&set.IntSet{},
 		&MutexSet{},
 	} {
 		b.Run(fmt.Sprintf("%T", m), func(b *testing.B) {
@@ -110,6 +110,7 @@ func BenchmarkLoadOrStoreBalanced(b *testing.B) {
 func BenchmarkLoadOrStoreUnique(b *testing.B) {
 	benchMap(b, bench{
 		setup: func(b *testing.B, m Interface) {
+			m.OnceInit(1 << 27)
 		},
 
 		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
@@ -163,7 +164,9 @@ func BenchmarkLoadAndDeleteUnique(b *testing.B) {
 	benchMap(b, bench{
 		setup: func(b *testing.B, m Interface) {
 			for i := 0; i < m.Cap(); i++ {
-				m.Store(uint32(i))
+				if !m.Store(uint32(i)) {
+					b.Errorf("not store:%d", i)
+				}
 			}
 		},
 
@@ -194,9 +197,12 @@ func BenchmarkRange(b *testing.B) {
 	const mapSize = 1 << 10
 
 	benchMap(b, bench{
-		setup: func(_ *testing.B, m Interface) {
+		setup: func(b *testing.B, m Interface) {
+			m.OnceInit(mapSize)
 			for i := 0; i < mapSize; i++ {
-				m.Store(uint32(i))
+				if !m.Store(uint32(i)) {
+					b.Errorf("not store:%d", i)
+				}
 			}
 		},
 
@@ -206,4 +212,91 @@ func BenchmarkRange(b *testing.B) {
 			}
 		},
 	})
+}
+
+type opType int
+
+const (
+	opUnion opType = iota
+	opIntersect
+	opDifference
+	opComplement
+)
+
+type opBench struct {
+	name string
+	x    Interface
+	y    Interface
+}
+
+func (op opBench) call(t opType, invert bool) {
+	if invert {
+		switch t {
+		case opUnion:
+			set.Union(op.y, op.x)
+		case opIntersect:
+			set.Intersect(op.y, op.x)
+		case opDifference:
+			set.Difference(op.y, op.x)
+		case opComplement:
+			set.Complement(op.y, op.x)
+		}
+	} else {
+		switch t {
+		case opUnion:
+			set.Union(op.x, op.y)
+		case opIntersect:
+			set.Intersect(op.x, op.y)
+		case opDifference:
+			set.Difference(op.x, op.y)
+		case opComplement:
+			set.Complement(op.x, op.y)
+		}
+	}
+}
+
+func call(b *testing.B, op opType, invert bool) {
+	const (
+		cap1   = 100
+		start1 = 0
+		end1   = 100
+
+		cap2   = 150
+		start2 = 40
+		end2   = 150
+	)
+
+	for _, v := range [...]opBench{
+		{"II", getIntSet(cap1, start1, end1), getIntSet(cap2, start2, end2)},
+		{"IS", getIntSet(cap1, start1, end1), getSliceSet(cap2, start2, end2)},
+		{"IM", getIntSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
+		{"SS", getSliceSet(cap1, start1, end1), getSliceSet(cap2, start2, end2)},
+		{"SM", getSliceSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
+		{"MM", getMutexSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
+	} {
+		b.Run(v.name, func(b *testing.B) {
+			b.ResetTimer()
+			b.RunParallel(func(p *testing.PB) {
+				for p.Next() {
+					v.call(op, invert)
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkUnion(b *testing.B) {
+	call(b, opUnion, false)
+}
+
+func BenchmarkIntersect(b *testing.B) {
+	call(b, opIntersect, false)
+}
+
+func BenchmarkDifference(b *testing.B) {
+	call(b, opDifference, false)
+}
+
+func BenchmarkComplement(b *testing.B) {
+	call(b, opComplement, false)
 }

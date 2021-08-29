@@ -71,7 +71,7 @@ func (s *SliceSet) OnceInit(max int) {
 // Init initialize IntSet use maximum
 // it only execute once time.
 func (s *SliceSet) Init() {
-	s.OnceInit(0)
+	s.onceInit(0)
 }
 
 // due to the heightest bit use for evacuted.
@@ -95,7 +95,8 @@ func (s *SliceSet) getMax() uint32 {
 
 // i must < num
 func (s *SliceSet) load(i int) uint32 {
-	return s.getNode().load(i)
+	n := s.getNode()
+	return n.load(i)
 }
 
 func (n *node) load(idx int) uint32 {
@@ -321,7 +322,7 @@ func (s *SliceSet) Range(f func(x uint32) bool) {
 	n := s.getNode()
 	sNum := int(n.getLen())
 	for i := 0; i < sNum; i++ {
-		item := s.load(i)
+		item := n.load(i)
 		if item == 0 {
 			continue
 		}
