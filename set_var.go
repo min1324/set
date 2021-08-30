@@ -147,7 +147,7 @@ func (s *SliceSet) LoadOrStore(x uint32) (loaded, ok bool) {
 		return
 	}
 	idx, mod := idxMod31(x)
-	if !s.verify(idx) {
+	if s.overflow(idx) {
 		return
 	}
 	for {
@@ -173,28 +173,28 @@ func (n *node) evacuted(idx int) bool {
 	return atomic.LoadUint32(&n.data[idx])&freezeBit > 0
 }
 
-// verify idx if large len,cap
+// overflow idx if large len,cap
 // if idx=cap,need grow
-func (s *SliceSet) verify(idx int) bool {
+func (s *SliceSet) overflow(idx int) bool {
 	for {
 		n := s.getNode()
 		nlen := n.getLen()
 		if idx < int(nlen) {
-			return true
+			return false
 		}
 		// idx > len
 		// TODO grow len to idx+1
 		ncap := n.getCap()
 		if idx < int(ncap) {
 			if atomic.CompareAndSwapUint32(&n.len, nlen, uint32(idx+1)) {
-				return true
+				return false
 			}
 		}
 		// idx > cap, grow work
 		if growWork(s, n, uint32(idx+1)) {
 			n := s.getNode()
 			// check if idx<cap
-			return idx < int(n.getCap())
+			return idx >= int(n.getCap())
 		}
 		runtime.Gosched()
 	}
@@ -379,7 +379,7 @@ func (s *SliceSet) Clear() {
 
 // i must < num
 func (s *SliceSet) store(i int, val uint32) {
-	s.verify(i)
+	s.overflow(i)
 	s.getNode().store(i, val)
 }
 

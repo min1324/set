@@ -108,7 +108,7 @@ func (s *IntSet) load(i int) uint32 {
 
 // i must < len
 func (s *IntSet) store(i int, x uint32) {
-	s.verify(i)
+	s.overflow(i)
 	atomic.StoreUint32(&s.items[i], x)
 }
 
@@ -148,7 +148,7 @@ func (s *IntSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	idx, mod := idxMod(x)
 
 	// verify and grow the items
-	if !s.verify(idx) {
+	if s.overflow(idx) {
 		return
 	}
 	for {
@@ -164,20 +164,20 @@ func (s *IntSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	}
 }
 
-func (s *IntSet) verify(idx int) bool {
+func (s *IntSet) overflow(idx int) bool {
 	for {
 		slen := s.getLen()
 		if idx < int(slen) {
-			return true
+			return false
 		}
 		// idx > len
 		// TODO grow len to idx+1
 		if idx >= int(s.getCap()) {
 			// idx > cap, overflow
-			return false
+			return true
 		}
 		if atomic.CompareAndSwapUint32(&s.len, uint32(slen), uint32(idx+1)) {
-			return true
+			return false
 		}
 	}
 }
