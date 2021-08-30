@@ -47,15 +47,10 @@ type MutexSet struct {
 
 func (s *MutexSet) onceInit(max int) {
 	s.once.Do(func() {
-		var cap uint32 = uint32(max>>5 + 1)
-		if max < 1 {
-			max = initSize
-			cap = initSize>>5 + 1
-		}
-		if max > int(maxItem) {
+		if max < 1 || max > int(maxItem) {
 			max = int(maxItem)
-			cap = 8
 		}
+		var cap uint32 = uint32(max>>5 + 1)
 		s.items = make([]uint32, cap)
 		s.cap = uint32(cap)
 		s.max = uint32(max)

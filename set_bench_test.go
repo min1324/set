@@ -23,6 +23,8 @@ func benchMap(b *testing.B, bench bench) {
 		&set.SliceSet{},
 		&set.IntSet{},
 		&MutexSet{},
+		// set.NewIntOpt(preInitSize),
+		// set.NewVarOpt(preInitSize),
 	} {
 		b.Run(fmt.Sprintf("%T", m), func(b *testing.B) {
 			m = reflect.New(reflect.TypeOf(m).Elem()).Interface().(Interface)
@@ -110,7 +112,7 @@ func BenchmarkLoadOrStoreBalanced(b *testing.B) {
 func BenchmarkLoadOrStoreUnique(b *testing.B) {
 	benchMap(b, bench{
 		setup: func(b *testing.B, m Interface) {
-			m.OnceInit(1 << 27)
+			m.OnceInit(1 << 25)
 		},
 
 		perG: func(b *testing.B, pb *testing.PB, i int, m Interface) {
@@ -270,9 +272,13 @@ func call(b *testing.B, op opType, invert bool) {
 		{"II", getIntSet(cap1, start1, end1), getIntSet(cap2, start2, end2)},
 		{"IS", getIntSet(cap1, start1, end1), getSliceSet(cap2, start2, end2)},
 		{"IM", getIntSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
+		// {"IF", getIntSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
 		{"SS", getSliceSet(cap1, start1, end1), getSliceSet(cap2, start2, end2)},
 		{"SM", getSliceSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
+		// {"SF", getSliceSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
 		{"MM", getMutexSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
+		// {"MF", getMutexSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
+		// {"FF", getFixedSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
 	} {
 		b.Run(v.name, func(b *testing.B) {
 			b.ResetTimer()
