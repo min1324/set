@@ -94,17 +94,17 @@ func applyMutex(calls []setCall) ([]setResult, map[interface{}]interface{}) {
 	return applyCalls(new(MutexSet), calls)
 }
 
-// func applyFixed(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-// 	return applyCalls(new(set.Option), calls)
-// }
+func applyFixed(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(new(set.Option), calls)
+}
 
-// func applyFixedInt(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-// 	return applyCalls(set.NewIntOpt(int(maxItem)), calls)
-// }
+func applyFixedInt(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(set.NewIntOpt(int(maxItem)), calls)
+}
 
-// func applyFixedVar(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-// 	return applyCalls(set.NewVarOpt(int(maxItem)), calls)
-// }
+func applyFixedVar(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(set.NewVarOpt(int(maxItem)), calls)
+}
 
 type applyFunc func(calls []setCall) ([]setResult, map[interface{}]interface{})
 
@@ -118,9 +118,9 @@ func applyMap(t *testing.T, standard applyFunc) {
 		{"IntSet", applyIntSet},
 		{"SliceSet", applySliceSet},
 		{"Mutex", applyMutex},
-		// {"Fixed", applyFixed},
-		// {"FixedInt", applyFixedInt},
-		// {"FixedVar", applyFixedVar},
+		{"Fixed", applyFixed},
+		{"FixedInt", applyFixedInt},
+		{"FixedVar", applyFixedVar},
 	} {
 		t.Run(m.name, func(t *testing.T) {
 			if err := quick.CheckEqual(standard, m.applyFunc, nil); err != nil {
@@ -146,35 +146,35 @@ func TestSliceSetMatchsMutex(t *testing.T) {
 	}
 }
 
-// func TestMutexMatchsFixed(t *testing.T) {
-// 	if err := quick.CheckEqual(applyMutex, applyFixed, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestMutexMatchsFixed(t *testing.T) {
+	if err := quick.CheckEqual(applyMutex, applyFixed, nil); err != nil {
+		t.Error(err)
+	}
+}
 
-// func TestMutexMatchsFixedInt(t *testing.T) {
-// 	if err := quick.CheckEqual(applyMutex, applyFixedInt, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestMutexMatchsFixedInt(t *testing.T) {
+	if err := quick.CheckEqual(applyMutex, applyFixedInt, nil); err != nil {
+		t.Error(err)
+	}
+}
 
-// func TestIntSetMatchsFixedVar(t *testing.T) {
-// 	if err := quick.CheckEqual(applyMutex, applyFixedVar, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestIntSetMatchsFixedVar(t *testing.T) {
+	if err := quick.CheckEqual(applyMutex, applyFixedVar, nil); err != nil {
+		t.Error(err)
+	}
+}
 
-// func TestFixedMatchsFixedVar(t *testing.T) {
-// 	if err := quick.CheckEqual(applyFixedInt, applyFixedVar, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestFixedMatchsFixedVar(t *testing.T) {
+	if err := quick.CheckEqual(applyFixedInt, applyFixedVar, nil); err != nil {
+		t.Error(err)
+	}
+}
 
-// func TestSliceMatchsFixedVar(t *testing.T) {
-// 	if err := quick.CheckEqual(applySliceSet, applyFixedVar, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestSliceMatchsFixedVar(t *testing.T) {
+	if err := quick.CheckEqual(applySliceSet, applyFixedVar, nil); err != nil {
+		t.Error(err)
+	}
+}
 
 func getIntSet(cap, m, n int) *set.IntSet {
 	var s set.IntSet
