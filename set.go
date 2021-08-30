@@ -65,6 +65,12 @@ const (
 	rtOther reflactType = iota
 	rtIntSet
 	rtSlice
+
+	// getReflactType return value
+	rtIntInt
+	rtIntSlice
+	rtSliceSlice
+	rtSliceInt
 )
 
 var (
@@ -72,23 +78,35 @@ var (
 	SliceType = reflect.TypeOf(new(SliceSet))
 )
 
-// typeEqual check type s and t if equal,
-// return true if type s==t,and type of s and t
-func typeEqual(s, t Set) (rt reflactType, ok bool) {
+// get s,t reflact type
+func getReflactType(s, t Set) (r reflactType) {
 	rtS := reflect.TypeOf(s)
 	rtT := reflect.TypeOf(t)
-	ok = rtS == rtT
-	if ok {
-		switch rtS {
-		case IntType:
-			rt = rtIntSet
-		case SliceType:
-			rt = rtSlice
-		default:
-			rt = rtOther
-		}
+	var rt reflactType
+	switch rtS {
+	case IntType:
+		rt = rtIntSet
+	case SliceType:
+		rt = rtSlice
+	default:
+		return rtOther
 	}
-	return
+	switch rtT {
+	case IntType:
+		if rt == rtIntSet {
+			return rtIntInt
+		} else {
+			return rtSliceInt
+		}
+	case SliceType:
+		if rt == rtIntSet {
+			return rtIntSlice
+		} else {
+			return rtSliceSlice
+		}
+	default:
+		return rtOther
+	}
 }
 
 func items(s Set) []uint32 {
@@ -109,18 +127,147 @@ func items(s Set) []uint32 {
 // worst time complexity: O(N)
 // best  time complexity: O(1)
 func Equal(s, t Set) bool {
-	r, ok := typeEqual(s, t)
-	if ok {
-		if r == rtIntSet {
-			ss := s.(*IntSet)
-			tt := t.(*IntSet)
-			return intSetEqual(ss, tt)
-		} else if r == rtSlice {
-			ss := s.(*SliceSet)
-			tt := t.(*SliceSet)
-			return sliceSetEqual(ss, tt)
-		}
+	r := getReflactType(s, t)
+	switch r {
+	case rtIntInt:
+		ss := s.(*IntSet)
+		tt := t.(*IntSet)
+		return intSetEqual(ss, tt)
+	case rtSliceSlice:
+		ss := s.(*SliceSet)
+		tt := t.(*SliceSet)
+		return sliceSetEqual(ss, tt)
+	case rtIntSlice:
+		ss := s.(*IntSet)
+		tt := t.(*SliceSet)
+		itt := SliceToInt(tt)
+		return intSetEqual(ss, itt)
+	case rtSliceInt:
+		ss := s.(*SliceSet)
+		tt := t.(*IntSet)
+		iss := SliceToInt(ss)
+		return intSetEqual(iss, tt)
 	}
+	return generalEqual(s, t)
+}
+
+// Union return the union set of s and t.
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
+func Union(s, t Set) Set {
+	r := getReflactType(s, t)
+	switch r {
+	case rtIntInt:
+		ss := s.(*IntSet)
+		tt := t.(*IntSet)
+		return intSetUnion(ss, tt)
+	case rtSliceSlice:
+		ss := s.(*SliceSet)
+		tt := t.(*SliceSet)
+		return sliceSetUnion(ss, tt)
+	case rtIntSlice:
+		ss := s.(*IntSet)
+		tt := t.(*SliceSet)
+		itt := SliceToInt(tt)
+		return intSetUnion(ss, itt)
+	case rtSliceInt:
+		ss := s.(*SliceSet)
+		tt := t.(*IntSet)
+		iss := SliceToInt(ss)
+		return intSetUnion(iss, tt)
+	}
+	return generalUnion(s, t)
+}
+
+// Intersect return the intersection set of s and t
+// item in s and t
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
+func Intersect(s, t Set) Set {
+	r := getReflactType(s, t)
+	switch r {
+	case rtIntInt:
+		ss := s.(*IntSet)
+		tt := t.(*IntSet)
+		return intSetIntersect(ss, tt)
+	case rtSliceSlice:
+		ss := s.(*SliceSet)
+		tt := t.(*SliceSet)
+		return sliceSetIntersect(ss, tt)
+	case rtIntSlice:
+		ss := s.(*IntSet)
+		tt := t.(*SliceSet)
+		itt := SliceToInt(tt)
+		return intSetIntersect(ss, itt)
+	case rtSliceInt:
+		ss := s.(*SliceSet)
+		tt := t.(*IntSet)
+		iss := SliceToInt(ss)
+		return intSetIntersect(iss, tt)
+	}
+	return generalIntersect(s, t)
+}
+
+// Difference return the difference set of s and t
+// item in s and not in t
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
+func Difference(s, t Set) Set {
+	r := getReflactType(s, t)
+	switch r {
+	case rtIntInt:
+		ss := s.(*IntSet)
+		tt := t.(*IntSet)
+		return intSetDifference(ss, tt)
+	case rtSliceSlice:
+		ss := s.(*SliceSet)
+		tt := t.(*SliceSet)
+		return sliceSetDifference(ss, tt)
+	case rtIntSlice:
+		ss := s.(*IntSet)
+		tt := t.(*SliceSet)
+		itt := SliceToInt(tt)
+		return intSetDifference(ss, itt)
+	case rtSliceInt:
+		ss := s.(*SliceSet)
+		tt := t.(*IntSet)
+		iss := SliceToInt(ss)
+		return intSetDifference(iss, tt)
+	}
+	return generalDifference(s, t)
+
+}
+
+// Complement return the complement set of s and t
+// item in s but not in t, and not in s but in t.
+// worst time complexity: O(N)
+// best  time complexity: O(N/32)
+func Complement(s, t Set) Set {
+	r := getReflactType(s, t)
+	switch r {
+	case rtIntInt:
+		ss := s.(*IntSet)
+		tt := t.(*IntSet)
+		return intSetComplement(ss, tt)
+	case rtSliceSlice:
+		ss := s.(*SliceSet)
+		tt := t.(*SliceSet)
+		return sliceSetComplement(ss, tt)
+	case rtIntSlice:
+		ss := s.(*IntSet)
+		tt := t.(*SliceSet)
+		itt := SliceToInt(tt)
+		return intSetComplement(ss, itt)
+	case rtSliceInt:
+		ss := s.(*SliceSet)
+		tt := t.(*IntSet)
+		iss := SliceToInt(ss)
+		return intSetComplement(iss, tt)
+	}
+	return generalComplement(s, t)
+}
+
+func generalEqual(s, t Set) bool {
 	es := items(s)
 	var i = 0
 	var flag = true
@@ -138,22 +285,7 @@ func Equal(s, t Set) bool {
 	return flag
 }
 
-// Union return the union set of s and t.
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func Union(s, t Set) Set {
-	r, ok := typeEqual(s, t)
-	if ok {
-		if r == rtIntSet {
-			ss := s.(*IntSet)
-			tt := t.(*IntSet)
-			return intSetUnion(ss, tt)
-		} else if r == rtSlice {
-			ss := s.(*SliceSet)
-			tt := t.(*SliceSet)
-			return sliceSetUnion(ss, tt)
-		}
-	}
+func generalUnion(s, t Set) Set {
 	var p IntSet
 	es := items(s)
 	et := items(t)
@@ -185,23 +317,7 @@ func Union(s, t Set) Set {
 	return &p
 }
 
-// Intersect return the intersection set of s and t
-// item in s and t
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func Intersect(s, t Set) Set {
-	r, ok := typeEqual(s, t)
-	if ok {
-		if r == rtIntSet {
-			ss := s.(*IntSet)
-			tt := t.(*IntSet)
-			return intSetIntersect(ss, tt)
-		} else if r == rtSlice {
-			ss := s.(*SliceSet)
-			tt := t.(*SliceSet)
-			return sliceSetIntersect(ss, tt)
-		}
-	}
+func generalIntersect(s, t Set) Set {
 	var p IntSet
 	es := items(s)
 	et := items(t)
@@ -225,23 +341,7 @@ func Intersect(s, t Set) Set {
 	return &p
 }
 
-// Difference return the difference set of s and t
-// item in s and not in t
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func Difference(s, t Set) Set {
-	r, ok := typeEqual(s, t)
-	if ok {
-		if r == rtIntSet {
-			ss := s.(*IntSet)
-			tt := t.(*IntSet)
-			return intSetDifference(ss, tt)
-		} else if r == rtSlice {
-			ss := s.(*SliceSet)
-			tt := t.(*SliceSet)
-			return sliceSetDifference(ss, tt)
-		}
-	}
+func generalDifference(s, t Set) Set {
 	var p IntSet
 	es := items(s)
 	et := items(t)
@@ -267,23 +367,7 @@ func Difference(s, t Set) Set {
 	return &p
 }
 
-// Complement return the complement set of s and t
-// item in s but not in t, and not in s but in t.
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func Complement(s, t Set) Set {
-	r, ok := typeEqual(s, t)
-	if ok {
-		if r == rtIntSet {
-			ss := s.(*IntSet)
-			tt := t.(*IntSet)
-			return intSetComplement(ss, tt)
-		} else if r == rtSlice {
-			ss := s.(*SliceSet)
-			tt := t.(*SliceSet)
-			return sliceSetComplement(ss, tt)
-		}
-	}
+func generalComplement(s, t Set) Set {
 	var p IntSet
 	es := items(s)
 	et := items(t)
@@ -576,4 +660,56 @@ func maxmin(x, y int) (max, min int) {
 		return x, y
 	}
 	return y, x
+}
+
+func SliceToInt(s *SliceSet) *IntSet {
+	node := s.getNode()
+	var n IntSet
+	max := s.Cap()
+	slen := int(node.getLen())
+	n.onceInit(max)
+	for i := 0; i < slen; i++ {
+		item := node.load(i)
+		// u32 实际存位值
+		ni := (i + 1) * 31 / 32
+		//有效补偿位
+		bit := i % 32
+
+		// ni - 补偿
+		ivalue := (item &^ (1<<bit - 1)) >> bit
+		n.store(ni, n.load(ni)|ivalue)
+
+		// 补偿ni-(i>>5+1)
+		if i%32 != 0 {
+			bvalue := item & (1<<bit - 1)
+			bvalue <<= 31 - ((i - 1) % 32)
+			n.store(i-(i>>5+1), n.load(i-(i>>5+1))|bvalue)
+		}
+	}
+	return &n
+}
+
+func IntToSlice(s *IntSet) *SliceSet {
+	var n SliceSet
+	slen := int(s.getLen())
+	nCap := (slen + slen/31) * 32
+	n.onceInit(nCap)
+	n.max = uint32(maximum)
+
+	for i := 0; i < slen; i++ {
+		item := s.load(i)
+		// u32 实际存位值
+		ni := i + i/31
+		//有效补偿位
+		bit := i % 31
+		ivalue := item << bit
+		// 去掉bit最高位
+		ivalue &^= 1 << 31
+		n.store(ni, n.load(ni)|ivalue)
+
+		// 补偿i+(i/31+1)
+		bv := item >> (31 - bit)
+		n.store(ni+1, n.load(ni+1)|bv)
+	}
+	return &n
 }

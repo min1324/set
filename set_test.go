@@ -67,6 +67,7 @@ func (setCall) Generate(r *rand.Rand, size int) reflect.Value {
 }
 
 func applyCalls(m Interface, calls []setCall) (results []setResult, final map[interface{}]interface{}) {
+	m.OnceInit(int(maxItem))
 	for _, c := range calls {
 		v, ok := c.apply(m)
 		results = append(results, setResult{v, ok})
@@ -93,14 +94,48 @@ func applyMutex(calls []setCall) ([]setResult, map[interface{}]interface{}) {
 	return applyCalls(new(MutexSet), calls)
 }
 
-func TestIntSetMatchsSlice(t *testing.T) {
-	if err := quick.CheckEqual(applyIntSet, applySliceSet, nil); err != nil {
-		t.Error(err)
+// func applyFixed(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(new(set.Option), calls)
+// }
+
+// func applyFixedInt(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewIntOpt(int(maxItem)), calls)
+// }
+
+// func applyFixedVar(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewVarOpt(int(maxItem)), calls)
+// }
+
+type applyFunc func(calls []setCall) ([]setResult, map[interface{}]interface{})
+
+type applyStruct struct {
+	name string
+	applyFunc
+}
+
+func applyMap(t *testing.T, standard applyFunc) {
+	for _, m := range [...]applyStruct{
+		{"IntSet", applyIntSet},
+		{"SliceSet", applySliceSet},
+		{"Mutex", applyMutex},
+		// {"Fixed", applyFixed},
+		// {"FixedInt", applyFixedInt},
+		// {"FixedVar", applyFixedVar},
+	} {
+		t.Run(m.name, func(t *testing.T) {
+			if err := quick.CheckEqual(standard, m.applyFunc, nil); err != nil {
+				t.Error(err)
+			}
+		})
 	}
 }
 
+func TestAll(t *testing.T) {
+	applyMap(t, applyMutex)
+}
+
 func TestIntSetMatchsMutex(t *testing.T) {
-	if err := quick.CheckEqual(applyIntSet, applyMutex, &quick.Config{MaxCountScale: 10}); err != nil {
+	if err := quick.CheckEqual(applyIntSet, applyMutex, nil); err != nil {
 		t.Error(err)
 	}
 }
@@ -110,6 +145,36 @@ func TestSliceSetMatchsMutex(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// func TestMutexMatchsFixed(t *testing.T) {
+// 	if err := quick.CheckEqual(applyMutex, applyFixed, nil); err != nil {
+// 		t.Error(err)
+// 	}
+// }
+
+// func TestMutexMatchsFixedInt(t *testing.T) {
+// 	if err := quick.CheckEqual(applyMutex, applyFixedInt, nil); err != nil {
+// 		t.Error(err)
+// 	}
+// }
+
+// func TestIntSetMatchsFixedVar(t *testing.T) {
+// 	if err := quick.CheckEqual(applyMutex, applyFixedVar, nil); err != nil {
+// 		t.Error(err)
+// 	}
+// }
+
+// func TestFixedMatchsFixedVar(t *testing.T) {
+// 	if err := quick.CheckEqual(applyFixedInt, applyFixedVar, nil); err != nil {
+// 		t.Error(err)
+// 	}
+// }
+
+// func TestSliceMatchsFixedVar(t *testing.T) {
+// 	if err := quick.CheckEqual(applySliceSet, applyFixedVar, nil); err != nil {
+// 		t.Error(err)
+// 	}
+// }
 
 func getIntSet(cap, m, n int) *set.IntSet {
 	var s set.IntSet
@@ -138,6 +203,15 @@ func getMutexSet(cap, m, n int) *MutexSet {
 	return &s
 }
 
+func getFixedSet(cap, m, n int) *set.Option {
+	var s set.Option
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return &s
+}
+
 type setStruct struct {
 	setup func(*testing.T, Interface)
 	run   func(*testing.T, Interface)
@@ -154,6 +228,8 @@ func queueMap(t *testing.T, test setStruct) {
 		&set.IntSet{},
 		&set.SliceSet{},
 		&MutexSet{},
+		set.NewIntOpt(preInitSize),
+		set.NewVarOpt(preInitSize),
 	} {
 		t.Run(fmt.Sprintf("%T", m), func(t *testing.T) {
 			m = reflect.New(reflect.TypeOf(m).Elem()).Interface().(Interface)
@@ -642,7 +718,7 @@ func TestRace(t *testing.T) {
 func TestConcurrentStore(t *testing.T) {
 	var wg sync.WaitGroup
 	goNum := runtime.NumCPU()
-	var max = 1000000
+	var max = 10000
 
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
@@ -684,7 +760,7 @@ func TestConcurrentStore(t *testing.T) {
 func TestConcurrentDelete(t *testing.T) {
 	var wg sync.WaitGroup
 	goNum := runtime.NumCPU()
-	var max = 1000000
+	var max = 10000
 
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
@@ -726,7 +802,7 @@ func TestConcurrentDelete(t *testing.T) {
 func TestConcurrentRace(t *testing.T) {
 	var wg sync.WaitGroup
 	goNum := runtime.NumCPU()
-	var max = 1000000
+	var max = 10000
 
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	delargs := make([]uint32, max)
@@ -776,4 +852,154 @@ func TestConcurrentRace(t *testing.T) {
 
 		},
 	})
+}
+
+func Test_uint31To32(t *testing.T) {
+	ulen := 100
+	u31 := make([]uint32, ulen)
+	u32 := make([]uint32, ulen)
+	for i := 0; i < ulen; i++ {
+		u31[i] |= 1<<31 - 1
+		u32[i] |= 1<<31 - 1 | 1<<31
+	}
+	ls := ulen*31/32 + 1
+	lm := ulen * 31 % 32
+	u32 = u32[:ls]
+	u32[ls-1] &= (1<<lm - 1)
+	for i := ls; i < len(u32); i++ {
+		u32[i] = 0
+	}
+
+	type args struct {
+		u31  []uint32
+		ulen int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantU32 []uint32
+	}{
+		// TODO: Add test cases.
+		{
+			name: "",
+			args: args{
+				u31:  u31,
+				ulen: ulen,
+			},
+			wantU32: u32,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotU32 := uint31To32(tt.args.u31, tt.args.ulen); !reflect.DeepEqual(gotU32, tt.wantU32) {
+				for i := 0; i < len(gotU32); i++ {
+					if gotU32[i] != tt.wantU32[i] {
+						t.Errorf("uint31To32() = %v, want %v\n", gotU32[i], tt.wantU32[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func uint31To32(u31 []uint32, ulen int) (u32 []uint32) {
+	u32 = make([]uint32, ulen)
+	mlen := ulen*31/32 + 1
+	for i := 0; i < ulen; i++ {
+		item := u31[i]
+		ni := (i + 1) * 31 / 32
+		bit := i % 32 //有效补偿位
+
+		u32[ni] |= (item &^ (1<<bit - 1)) >> bit
+
+		if i%32 != 0 {
+			// 补偿
+			bv := item & (1<<bit - 1)
+			bv <<= 31 - ((i - 1) % 32)
+			u32[i-(i/32+1)] |= bv
+		}
+	}
+	return u32[:mlen]
+}
+
+func TestSliceToInt(t *testing.T) {
+	cap := 1000
+	var s set.SliceSet
+	s.OnceInit(cap)
+	for i := 0; i < cap; i++ {
+		s.Store(uint32(i))
+	}
+	r := s.Copy()
+	type args struct {
+		s *set.SliceSet
+	}
+	tests := []struct {
+		name string
+		args args
+		want *set.IntSet
+	}{
+		// TODO: Add test cases.
+		{
+			name: "",
+			args: args{
+				s: &s,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := set.SliceToInt(tt.args.s); !set.Equal(got, r) {
+				// t.Errorf("SliceToInt() = %v, want %v", got, r)
+				var i uint32 = 0
+				got.Range(func(x uint32) bool {
+					if i != x {
+						t.Errorf("miss:%d ", i)
+					}
+					i = x + 1
+					return true
+				})
+			}
+		})
+	}
+}
+
+func TestIntToSlice(t *testing.T) {
+	cap := 1000
+	var s set.IntSet
+	s.OnceInit(cap)
+	for i := 0; i < cap; i++ {
+		s.Store(uint32(i))
+	}
+	r := s.Copy()
+	type args struct {
+		s *set.IntSet
+	}
+	tests := []struct {
+		name string
+		args args
+		want *set.SliceSet
+	}{
+		// TODO: Add test cases.
+		{
+			name: "",
+			args: args{
+				s: &s,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := set.IntToSlice(tt.args.s); !set.Equal(got, r) {
+				// t.Errorf("SliceToInt() = %v, want %v", got, r)
+				var i uint32 = 0
+				got.Range(func(x uint32) bool {
+					if i != x {
+						t.Errorf("miss:%d ", i)
+					}
+					i = x + 1
+					return true
+				})
+			}
+		})
+	}
 }
