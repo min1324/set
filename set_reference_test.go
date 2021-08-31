@@ -1,6 +1,8 @@
 package set_test
 
 import (
+	"bytes"
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -24,9 +26,9 @@ const (
 	// platform bit = 2^setBits,(32/64)
 	setBits  = 5 //+ (^uint(0) >> 63)
 	platform = 1 << setBits
-	setMesk  = 1<<setBits - 1
+	setMask  = 1<<setBits - 1
 
-	maxItem  uint32 = 1 << 24 * 31
+	maximum  uint32 = 1 << 24 * 31
 	initSize        = 1 << 8
 )
 
@@ -47,8 +49,8 @@ type MutexSet struct {
 
 func (s *MutexSet) onceInit(max int) {
 	s.once.Do(func() {
-		if max < 1 || max > int(maxItem) {
-			max = int(maxItem)
+		if max < 1 || max > int(maximum) {
+			max = int(maximum)
 		}
 		var cap uint32 = uint32(max>>5 + 1)
 		s.items = make([]uint32, cap)
@@ -60,22 +62,31 @@ func (s *MutexSet) onceInit(max int) {
 // OnceInit initialize set use cap
 // it only execute once time.
 // if cap<1, will use 256.
-func (s *MutexSet) OnceInit(cap int) {
-	s.onceInit(cap)
+func (s *MutexSet) OnceInit(max int) {
+	s.onceInit(max)
 }
 
 // Init initialize queue use default size: 256
 // it only execute once time.
 func (s *MutexSet) Init() {
-	s.onceInit(0)
+	s.onceInit(initSize)
 }
 
 func (s *MutexSet) load(i int) uint32 {
 	return atomic.LoadUint32(&s.items[i])
 }
 
+func (s *MutexSet) store(i int, x uint32) {
+	s.verify(i)
+	atomic.StoreUint32(&s.items[i], x)
+}
+
 func (q *MutexSet) getLen() uint32 {
 	return atomic.LoadUint32(&q.len)
+}
+
+func (q *MutexSet) getMax() uint32 {
+	return atomic.LoadUint32(&q.max)
 }
 
 func (q *MutexSet) getCap() uint32 {
@@ -87,17 +98,19 @@ func (q *MutexSet) Cap() int {
 	return int(atomic.LoadUint32(&q.max))
 }
 
-// Cap return queue's cap
-func (q *MutexSet) Max() uint32 {
-	return atomic.LoadUint32(&q.max)
-}
-
+// in 64 bit platform
+// x = 64*idx + mod
+// idx = x/64 (x>>6) , mod = x%64 (x&(1<<6-1))
+//
+// in 32 bit platform
+// x = idx + mod
+// idx = x/32 (x>>5) , mod = x%32 (x&(1<<5-1))
 func idxMod(x uint32) (idx, mod int) {
-	return int(x >> setBits), int(x & setMesk)
+	return int(x >> setBits), int(x & setMask)
 }
 
 func (s *MutexSet) Load(x uint32) bool {
-	if x > s.Max() {
+	if x > s.getMax() {
 		// overflow
 		return false
 	}
@@ -119,7 +132,7 @@ func (s *MutexSet) Store(x uint32) bool {
 
 func (s *MutexSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	s.Init()
-	if x > s.Max() {
+	if x > s.getMax() {
 		return false, false
 	}
 	s.mu.Lock()
@@ -134,7 +147,8 @@ func (s *MutexSet) LoadOrStore(x uint32) (loaded, ok bool) {
 	if (item>>mod)&1 == 1 {
 		return true, true
 	}
-	atomic.StoreUint32(&s.items[idx], item|1<<mod)
+	s.store(idx, item|1<<mod)
+	// atomic.StoreUint32(&s.items[idx], item|1<<mod)
 	return false, true
 }
 
@@ -148,26 +162,7 @@ func (s *MutexSet) verify(idx int) bool {
 	} else {
 		// grow
 		oldCap := atomic.LoadUint32(&s.cap)
-		newCap := oldCap
-		doubleCap := newCap << 1
-		if uint32(idx) > doubleCap {
-			newCap = uint32(idx)
-		} else {
-			if newCap < 1024 {
-				newCap = doubleCap
-			} else {
-				// Check 0 < newcap to detect overflow
-				// and prevent an infinite loop.
-				for 0 < newCap && newCap < uint32(idx) {
-					newCap += newCap / 4
-				}
-				// Set newcap to the requested cap when
-				// the newcap calculation overflowed.
-				if newCap <= 0 {
-					newCap = uint32(idx)
-				}
-			}
-		}
+		newCap := caculateCap(oldCap, uint32(idx))
 		data := make([]uint32, newCap)
 		for i := 0; i < int(oldCap); i++ {
 			data[i] = s.load(idx)
@@ -186,7 +181,7 @@ func (s *MutexSet) Delete(x uint32) bool {
 
 func (s *MutexSet) LoadAndDelete(x uint32) (loaded, ok bool) {
 	s.Init()
-	if x > s.Max() {
+	if x > s.getMax() {
 		return false, false
 	}
 	s.mu.Lock()
@@ -270,4 +265,42 @@ func (s *MutexSet) Items() []uint32 {
 		return true
 	})
 	return array[:sum]
+}
+
+func (s *MutexSet) String() string {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	s.Range(func(x uint32) bool {
+		if buf.Len() > len("{") {
+			buf.WriteByte(' ')
+		}
+		fmt.Fprintf(&buf, "%d", x)
+		return true
+	})
+	buf.WriteByte('}')
+	return buf.String()
+}
+
+func caculateCap(old, cap uint32) uint32 {
+	newCap := old
+	doubleCap := newCap << 1
+	if cap > doubleCap {
+		newCap = cap
+	} else {
+		if newCap < 1024 {
+			newCap = doubleCap
+		} else {
+			// Check 0 < newcap to detect overflow
+			// and prevent an infinite loop.
+			for 0 < newCap && newCap < cap {
+				newCap += newCap / 4
+			}
+			// Set newcap to the requested cap when
+			// the newcap calculation overflowed.
+			if newCap <= 0 {
+				newCap = cap
+			}
+		}
+	}
+	return newCap
 }
