@@ -15,6 +15,9 @@ const (
 
 // Set
 type Set interface {
+	// OnceInit once time with max item.
+	OnceInit(max int)
+
 	// Load reports whether the set contains the non-negative value x.
 	Load(x uint32) (ok bool)
 
@@ -71,10 +74,13 @@ const (
 	rtIntSlice
 	rtSliceSlice
 	rtSliceInt
+	rtOtherSame
 )
 
 var (
-	IntType   = reflect.TypeOf(new(IntSet))
+	// reflact.typeof IntSet
+	IntType = reflect.TypeOf(new(IntSet))
+	// reflact.typeof SliceSet
 	SliceType = reflect.TypeOf(new(SliceSet))
 )
 
@@ -83,29 +89,46 @@ func getReflactType(s, t Set) (r reflactType) {
 	rtS := reflect.TypeOf(s)
 	rtT := reflect.TypeOf(t)
 	var rt reflactType
-	switch rtS {
-	case IntType:
-		rt = rtIntSet
-	case SliceType:
-		rt = rtSlice
-	default:
-		return rtOther
-	}
-	switch rtT {
-	case IntType:
-		if rt == rtIntSet {
+
+	ok := rtS == rtT
+	if ok {
+		switch rtS {
+		case IntType:
 			return rtIntInt
-		} else {
-			return rtSliceInt
-		}
-	case SliceType:
-		if rt == rtIntSet {
-			return rtIntSlice
-		} else {
+		case SliceType:
 			return rtSliceSlice
+		default:
+			return rtOtherSame
 		}
-	default:
-		return rtOther
+	} else {
+		// s,t not same type
+		switch rtS {
+		case IntType:
+			rt = rtIntSet
+		case SliceType:
+			rt = rtSlice
+		default:
+			if rtT == rtS {
+				return rtOtherSame
+			}
+			return rtOther
+		}
+		switch rtT {
+		case IntType:
+			if rt == rtIntSet {
+				return rtIntInt
+			} else {
+				return rtSliceInt
+			}
+		case SliceType:
+			if rt == rtIntSet {
+				return rtIntSlice
+			} else {
+				return rtSliceSlice
+			}
+		default:
+			return rtOther
+		}
 	}
 }
 
@@ -124,29 +147,28 @@ func items(s Set) []uint32 {
 }
 
 // Equal return set if equal, s <==> t
-// worst time complexity: O(N)
-// best  time complexity: O(1)
 func Equal(s, t Set) bool {
 	r := getReflactType(s, t)
 	switch r {
 	case rtIntInt:
 		ss := s.(*IntSet)
 		tt := t.(*IntSet)
-		return intSetEqual(ss, tt)
+		return sameTypeEqual(ss, tt)
 	case rtSliceSlice:
 		ss := s.(*SliceSet)
 		tt := t.(*SliceSet)
-		return sliceSetEqual(ss, tt)
+		return sameTypeEqual(ss, tt)
 	case rtIntSlice:
 		ss := s.(*IntSet)
 		tt := t.(*SliceSet)
 		itt := SliceToInt(tt)
-		return intSetEqual(ss, itt)
+		return sameTypeEqual(ss, itt)
 	case rtSliceInt:
 		ss := s.(*SliceSet)
 		tt := t.(*IntSet)
 		iss := SliceToInt(ss)
-		return intSetEqual(iss, tt)
+		return sameTypeEqual(iss, tt)
+	case rtOtherSame:
 	}
 	return generalEqual(s, t)
 }
@@ -158,25 +180,34 @@ func Union(s, t Set) Set {
 	r := getReflactType(s, t)
 	switch r {
 	case rtIntInt:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*IntSet)
-		return intSetUnion(ss, tt)
+		return sameTypeUnion(ss, tt, &p)
 	case rtSliceSlice:
+		var p SliceSet
 		ss := s.(*SliceSet)
 		tt := t.(*SliceSet)
-		return sliceSetUnion(ss, tt)
+		return sameTypeUnion(ss, tt, &p)
 	case rtIntSlice:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*SliceSet)
 		itt := SliceToInt(tt)
-		return intSetUnion(ss, itt)
+		return sameTypeUnion(ss, itt, &p)
 	case rtSliceInt:
+		var p IntSet
 		ss := s.(*SliceSet)
 		tt := t.(*IntSet)
 		iss := SliceToInt(ss)
-		return intSetUnion(iss, tt)
+		return sameTypeUnion(iss, tt, &p)
+	case rtOtherSame:
+		typ := reflect.TypeOf(s)
+		p := reflect.New(typ.Elem()).Interface().(Set)
+		return generalUnion(s, t, p)
 	}
-	return generalUnion(s, t)
+	var p IntSet
+	return generalUnion(s, t, &p)
 }
 
 // Intersect return the intersection set of s and t
@@ -187,25 +218,34 @@ func Intersect(s, t Set) Set {
 	r := getReflactType(s, t)
 	switch r {
 	case rtIntInt:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*IntSet)
-		return intSetIntersect(ss, tt)
+		return sameTypeIntersect(ss, tt, &p)
 	case rtSliceSlice:
+		var p SliceSet
 		ss := s.(*SliceSet)
 		tt := t.(*SliceSet)
-		return sliceSetIntersect(ss, tt)
+		return sameTypeIntersect(ss, tt, &p)
 	case rtIntSlice:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*SliceSet)
 		itt := SliceToInt(tt)
-		return intSetIntersect(ss, itt)
+		return sameTypeIntersect(ss, itt, &p)
 	case rtSliceInt:
+		var p IntSet
 		ss := s.(*SliceSet)
 		tt := t.(*IntSet)
 		iss := SliceToInt(ss)
-		return intSetIntersect(iss, tt)
+		return sameTypeIntersect(iss, tt, &p)
+	case rtOtherSame:
+		typ := reflect.TypeOf(s)
+		p := reflect.New(typ.Elem()).Interface().(Set)
+		return generalIntersect(s, t, p)
 	}
-	return generalIntersect(s, t)
+	var p IntSet
+	return generalIntersect(s, t, &p)
 }
 
 // Difference return the difference set of s and t
@@ -216,25 +256,34 @@ func Difference(s, t Set) Set {
 	r := getReflactType(s, t)
 	switch r {
 	case rtIntInt:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*IntSet)
-		return intSetDifference(ss, tt)
+		return sameTypeDifference(ss, tt, &p)
 	case rtSliceSlice:
+		var p SliceSet
 		ss := s.(*SliceSet)
 		tt := t.(*SliceSet)
-		return sliceSetDifference(ss, tt)
+		return sameTypeDifference(ss, tt, &p)
 	case rtIntSlice:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*SliceSet)
 		itt := SliceToInt(tt)
-		return intSetDifference(ss, itt)
+		return sameTypeDifference(ss, itt, &p)
 	case rtSliceInt:
+		var p IntSet
 		ss := s.(*SliceSet)
 		tt := t.(*IntSet)
 		iss := SliceToInt(ss)
-		return intSetDifference(iss, tt)
+		return sameTypeDifference(iss, tt, &p)
+	case rtOtherSame:
+		typ := reflect.TypeOf(s)
+		p := reflect.New(typ.Elem()).Interface().(Set)
+		return generalDifference(s, t, p)
 	}
-	return generalDifference(s, t)
+	var p IntSet
+	return generalDifference(s, t, &p)
 
 }
 
@@ -246,51 +295,56 @@ func Complement(s, t Set) Set {
 	r := getReflactType(s, t)
 	switch r {
 	case rtIntInt:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*IntSet)
-		return intSetComplement(ss, tt)
+		return sameTypeComplement(ss, tt, &p)
 	case rtSliceSlice:
+		var p SliceSet
 		ss := s.(*SliceSet)
 		tt := t.(*SliceSet)
-		return sliceSetComplement(ss, tt)
+		return sameTypeComplement(ss, tt, &p)
 	case rtIntSlice:
+		var p IntSet
 		ss := s.(*IntSet)
 		tt := t.(*SliceSet)
 		itt := SliceToInt(tt)
-		return intSetComplement(ss, itt)
+		return sameTypeComplement(ss, itt, &p)
 	case rtSliceInt:
+		var p IntSet
 		ss := s.(*SliceSet)
 		tt := t.(*IntSet)
 		iss := SliceToInt(ss)
-		return intSetComplement(iss, tt)
+		return sameTypeComplement(iss, tt, &p)
+	case rtOtherSame:
+		typ := reflect.TypeOf(s)
+		p := reflect.New(typ.Elem()).Interface().(Set)
+		return generalComplement(s, t, p)
 	}
-	return generalComplement(s, t)
+	var p IntSet
+	return generalComplement(s, t, &p)
 }
 
 func generalEqual(s, t Set) bool {
 	es := items(s)
-	var i = 0
-	var flag = true
-	t.Range(func(x uint32) bool {
-		if es[i] == x {
-			i++
-			return true
-		}
-		flag = false
+	et := items(t)
+	slen, tlen := len(es), len(et)
+	if slen != tlen {
 		return false
-	})
-	if i < len(es) {
-		flag = false
 	}
-	return flag
+	for i := 0; i < slen; i++ {
+		if es[i] != et[i] {
+			return false
+		}
+	}
+	return true
 }
 
-func generalUnion(s, t Set) Set {
-	var p IntSet
+func generalUnion(s, t, p Set) Set {
 	es := items(s)
 	et := items(t)
 	maxCap := max(int(es[len(es)-1]), int(et[len(et)-1]))
-	p.onceInit(maxCap)
+	p.OnceInit(maxCap)
 
 	var i, j = 0, 0
 	for j < len(et) && i < len(es) {
@@ -314,15 +368,14 @@ func generalUnion(s, t Set) Set {
 	for ; j < len(et); j++ {
 		p.Store(et[j])
 	}
-	return &p
+	return p
 }
 
-func generalIntersect(s, t Set) Set {
-	var p IntSet
+func generalIntersect(s, t, p Set) Set {
 	es := items(s)
 	et := items(t)
 	minCap := min(int(es[len(es)-1]), int(et[len(et)-1]))
-	p.onceInit(minCap)
+	p.OnceInit(minCap)
 
 	var i, j = 0, 0
 	for j < len(et) && i < len(es) {
@@ -338,14 +391,13 @@ func generalIntersect(s, t Set) Set {
 			continue
 		}
 	}
-	return &p
+	return p
 }
 
-func generalDifference(s, t Set) Set {
-	var p IntSet
+func generalDifference(s, t, p Set) Set {
 	es := items(s)
 	et := items(t)
-	p.onceInit(int(es[len(es)-1]))
+	p.OnceInit(int(es[len(es)-1]))
 
 	var i, j = 0, 0
 	for j < len(et) && i < len(es) {
@@ -364,15 +416,14 @@ func generalDifference(s, t Set) Set {
 	for ; i < len(es); i++ {
 		p.Store(es[i])
 	}
-	return &p
+	return p
 }
 
-func generalComplement(s, t Set) Set {
-	var p IntSet
+func generalComplement(s, t, p Set) Set {
 	es := items(s)
 	et := items(t)
 	maxCap := max(int(es[len(es)-1]), int(et[len(et)-1]))
-	p.onceInit(maxCap)
+	p.OnceInit(maxCap)
 
 	var i, j = 0, 0
 	for j < len(et) && i < len(es) {
@@ -395,13 +446,24 @@ func generalComplement(s, t Set) Set {
 	for ; j < len(et); j++ {
 		p.Store(et[j])
 	}
-	return &p
+	return p
 }
 
+// use for sameType op
+type opSet interface {
+	Set
+	getLen() uint32
+	getMax() uint32
+	load(int) uint32
+	store(int, uint32)
+	onceInit(max int)
+}
+
+// x,y,p must the same type
+// return p
+
 // Equal return set if equal, s <==> t
-// worst time complexity: O(N)
-// best  time complexity: O(1)
-func intSetEqual(s, t *IntSet) bool {
+func sameTypeEqual(s, t opSet) bool {
 	sLen, tLen := int(s.getLen()), int(t.getLen())
 	minLen := min(sLen, tLen)
 	for i := 0; i < minLen; i++ {
@@ -429,13 +491,10 @@ func intSetEqual(s, t *IntSet) bool {
 }
 
 // Union return the union set of s and t.
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func intSetUnion(s, t *IntSet) *IntSet {
-	var p IntSet
+func sameTypeUnion(s, t, p opSet) Set {
 	sLen, tLen := int(s.getLen()), int(t.getLen())
 	maxLen, minLen := maxmin(sLen, tLen)
-	p.OnceInit(max(s.Cap(), t.Cap()))
+	p.onceInit(max(int(s.getMax()), int(t.getMax())))
 
 	// [0-minLen]
 	for i := 0; i < minLen; i++ {
@@ -451,35 +510,26 @@ func intSetUnion(s, t *IntSet) *IntSet {
 			p.store(i, s.load(i))
 		}
 	}
-	return &p
+	return p
 }
 
 // Intersect return the intersection set of s and t
-// item in s and t
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func intSetIntersect(s, t *IntSet) *IntSet {
-	var p IntSet
+func sameTypeIntersect(s, t, p opSet) Set {
 	sLen, tLen := int(s.getLen()), int(t.getLen())
 	minLen := min(sLen, tLen)
-	p.OnceInit(min(s.Cap(), t.Cap()))
+	p.onceInit(min(int(s.getMax()), int(t.getMax())))
 
 	for i := 0; i < minLen; i++ {
 		p.store(i, s.load(i)&t.load(i))
 	}
-
-	return &p
+	return p
 }
 
 // Difference return the difference set of s and t
-// item in s and not in t
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func intSetDifference(s, t *IntSet) *IntSet {
-	var p IntSet
+func sameTypeDifference(s, t, p opSet) Set {
 	sLen, tLen := int(s.getLen()), int(t.getLen())
 	minLen := min(sLen, tLen)
-	p.OnceInit(s.Cap())
+	p.onceInit(int(s.getMax()))
 
 	for i := 0; i < minLen; i++ {
 		p.store(i, s.load(i)&^t.load(i))
@@ -490,18 +540,15 @@ func intSetDifference(s, t *IntSet) *IntSet {
 		}
 	}
 
-	return &p
+	return p
 }
 
 // Complement return the complement set of s and t
 // item in s but not in t, and not in s but in t.
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func intSetComplement(s, t *IntSet) *IntSet {
-	var p IntSet
+func sameTypeComplement(s, t, p opSet) Set {
 	sLen, tLen := int(s.getLen()), int(t.getLen())
 	maxLen, minLen := maxmin(sLen, tLen)
-	p.OnceInit(max(s.Cap(), t.Cap()))
+	p.onceInit(max(int(s.getMax()), int(t.getMax())))
 
 	for i := 0; i < minLen; i++ {
 		p.store(i, s.load(i)^t.load(i))
@@ -514,131 +561,7 @@ func intSetComplement(s, t *IntSet) *IntSet {
 		}
 	}
 
-	return &p
-}
-
-// Equal return set if equal, s <==> t
-// worst time complexity: O(N)
-// best  time complexity: O(1)
-func sliceSetEqual(s, t *SliceSet) bool {
-	sn, tn := s.getNode(), t.getNode()
-	sLen, tLen := int(sn.getLen()), int(tn.getLen())
-	minLen := min(sLen, tLen)
-	for i := 0; i < minLen; i++ {
-		if s.load(i) != t.load(i) {
-			return false
-		}
-	}
-	if sLen == tLen {
-		return true
-	}
-	if sLen > tLen {
-		for i := minLen; i < sLen; i++ {
-			if s.load(i) != 0 {
-				return false
-			}
-		}
-	} else {
-		for i := minLen; i < tLen; i++ {
-			if t.load(i) != 0 {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// Union return the union set of s and t.
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func sliceSetUnion(s, t *SliceSet) *SliceSet {
-	var p SliceSet
-	sn, tn := s.getNode(), t.getNode()
-	sLen, tLen := int(sn.getLen()), int(tn.getLen())
-	maxLen, minLen := maxmin(sLen, tLen)
-	p.onceInit(max(s.Cap(), t.Cap()))
-
-	// [0-minLen]
-	for i := 0; i < minLen; i++ {
-		p.store(i, s.load(i)|t.load(i))
-	}
-	// [minLen-maxLen]
-	if sLen < tLen {
-		for i := minLen; i < maxLen; i++ {
-			p.store(i, t.load(i))
-		}
-	} else {
-		for i := minLen; i < maxLen; i++ {
-			p.store(i, s.load(i))
-		}
-	}
-
-	return &p
-}
-
-// Intersect return the intersection set of s and t
-// item in s and t
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func sliceSetIntersect(s, t *SliceSet) *SliceSet {
-	var p SliceSet
-	sn, tn := s.getNode(), t.getNode()
-	sLen, tLen := int(sn.getLen()), int(tn.getLen())
-	minLen := min(sLen, tLen)
-	p.onceInit(min(s.Cap(), t.Cap()))
-
-	for i := 0; i < minLen; i++ {
-		p.store(i, s.load(i)&t.load(i))
-	}
-	return &p
-}
-
-// Difference return the difference set of s and t
-// item in s and not in t
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func sliceSetDifference(s, t *SliceSet) *SliceSet {
-	var p SliceSet
-	sn, tn := s.getNode(), t.getNode()
-	sLen, tLen := int(sn.getLen()), int(tn.getLen())
-	minLen := min(sLen, tLen)
-	p.onceInit(s.Cap())
-
-	for i := 0; i < minLen; i++ {
-		p.store(i, s.load(i)&^t.load(i))
-	}
-	if sLen > tLen {
-		for i := minLen; i < sLen; i++ {
-			p.store(i, s.load(i))
-		}
-	}
-
-	return &p
-}
-
-// Complement return the complement set of s and t
-// item in s but not in t, and not in s but in t.
-// worst time complexity: O(N)
-// best  time complexity: O(N/32)
-func sliceSetComplement(s, t *SliceSet) *SliceSet {
-	var p SliceSet
-	sn, tn := s.getNode(), t.getNode()
-	sLen, tLen := int(sn.getLen()), int(tn.getLen())
-	maxLen, minLen := maxmin(sLen, tLen)
-	p.onceInit(max(s.Cap(), t.Cap()))
-
-	for i := 0; i < minLen; i++ {
-		p.store(i, s.load(i)^t.load(i))
-	}
-	for i := minLen; i < maxLen; i++ {
-		if sLen > tLen {
-			p.store(i, s.load(i))
-		} else {
-			p.store(i, t.load(i))
-		}
-	}
-
-	return &p
+	return p
 }
 
 func max(x, y int) int {
@@ -662,6 +585,51 @@ func maxmin(x, y int) (max, min int) {
 	return y, x
 }
 
+// ToInt convert Set to int set
+func ToInt(s Set) *IntSet {
+	rt := reflect.TypeOf(s)
+	switch rt {
+	case IntType:
+		// TODO copy s?
+		return s.(*IntSet)
+	case SliceType:
+		ss := s.(*SliceSet)
+		return SliceToInt(ss)
+	default:
+		array := items(s)
+		slen := len(array)
+		scap := array[slen-1]
+		t := New(int(scap))
+		for i := 0; i < slen; i++ {
+			t.Store(array[i])
+		}
+		return t.(*IntSet)
+	}
+}
+
+// ToSlice convert Set to slice set
+func ToSlice(s Set) *SliceSet {
+	rt := reflect.TypeOf(s)
+	switch rt {
+	case IntType:
+		ss := s.(*IntSet)
+		return IntToSlice(ss)
+	case SliceType:
+		// TODO copy s?
+		return s.(*SliceSet)
+	default:
+		array := items(s)
+		slen := len(array)
+		scap := array[slen-1]
+		t := NewSlice(int(scap))
+		for i := 0; i < slen; i++ {
+			t.Store(array[i])
+		}
+		return t.(*SliceSet)
+	}
+}
+
+// SliceToInt convert slice set to int set
 func SliceToInt(s *SliceSet) *IntSet {
 	node := s.getNode()
 	var n IntSet
@@ -689,6 +657,7 @@ func SliceToInt(s *SliceSet) *IntSet {
 	return &n
 }
 
+// SliceToInt convert int set to slice set
 func IntToSlice(s *IntSet) *SliceSet {
 	var n SliceSet
 	slen := int(s.getLen())
@@ -713,3 +682,222 @@ func IntToSlice(s *IntSet) *SliceSet {
 	}
 	return &n
 }
+
+// // Equal return set if equal, s <==> t
+// func intSetEqual(s, t *IntSet) bool {
+// 	sLen, tLen := int(s.getLen()), int(t.getLen())
+// 	minLen := min(sLen, tLen)
+// 	for i := 0; i < minLen; i++ {
+// 		if s.load(i) != t.load(i) {
+// 			return false
+// 		}
+// 	}
+// 	if sLen == tLen {
+// 		return true
+// 	}
+// 	if sLen > tLen {
+// 		for i := minLen; i < sLen; i++ {
+// 			if s.load(i) != 0 {
+// 				return false
+// 			}
+// 		}
+// 	} else {
+// 		for i := minLen; i < tLen; i++ {
+// 			if t.load(i) != 0 {
+// 				return false
+// 			}
+// 		}
+// 	}
+// 	return true
+// }
+
+// // Union return the union set of s and t.
+// func intSetUnion(s, t *IntSet) *IntSet {
+// 	var p IntSet
+// 	sLen, tLen := int(s.getLen()), int(t.getLen())
+// 	maxLen, minLen := maxmin(sLen, tLen)
+// 	p.OnceInit(max(s.Cap(), t.Cap()))
+
+// 	// [0-minLen]
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)|t.load(i))
+// 	}
+// 	// [minLen-maxLen]
+// 	if sLen < tLen {
+// 		for i := minLen; i < maxLen; i++ {
+// 			p.store(i, t.load(i))
+// 		}
+// 	} else {
+// 		for i := minLen; i < maxLen; i++ {
+// 			p.store(i, s.load(i))
+// 		}
+// 	}
+// 	return &p
+// }
+
+// // Intersect return the intersection set of s and t
+// func intSetIntersect(s, t *IntSet) *IntSet {
+// 	var p IntSet
+// 	sLen, tLen := int(s.getLen()), int(t.getLen())
+// 	minLen := min(sLen, tLen)
+// 	p.OnceInit(min(s.Cap(), t.Cap()))
+
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)&t.load(i))
+// 	}
+
+// 	return &p
+// }
+
+// // Difference return the difference set of s and t
+// func intSetDifference(s, t *IntSet) *IntSet {
+// 	var p IntSet
+// 	sLen, tLen := int(s.getLen()), int(t.getLen())
+// 	minLen := min(sLen, tLen)
+// 	p.OnceInit(s.Cap())
+
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)&^t.load(i))
+// 	}
+// 	if sLen > tLen {
+// 		for i := minLen; i < sLen; i++ {
+// 			p.store(i, s.load(i))
+// 		}
+// 	}
+
+// 	return &p
+// }
+
+// // Complement return the complement set of s and t
+// // item in s but not in t, and not in s but in t.
+// func intSetComplement(s, t *IntSet) *IntSet {
+// 	var p IntSet
+// 	sLen, tLen := int(s.getLen()), int(t.getLen())
+// 	maxLen, minLen := maxmin(sLen, tLen)
+// 	p.OnceInit(max(s.Cap(), t.Cap()))
+
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)^t.load(i))
+// 	}
+// 	for i := minLen; i < maxLen; i++ {
+// 		if sLen > tLen {
+// 			p.store(i, s.load(i))
+// 		} else {
+// 			p.store(i, t.load(i))
+// 		}
+// 	}
+
+// 	return &p
+// }
+
+// // Equal return set if equal, s <==> t
+// func sliceSetEqual(s, t *SliceSet) bool {
+// 	sn, tn := s.getNode(), t.getNode()
+// 	sLen, tLen := int(sn.getLen()), int(tn.getLen())
+// 	minLen := min(sLen, tLen)
+// 	for i := 0; i < minLen; i++ {
+// 		if s.load(i) != t.load(i) {
+// 			return false
+// 		}
+// 	}
+// 	if sLen == tLen {
+// 		return true
+// 	}
+// 	if sLen > tLen {
+// 		for i := minLen; i < sLen; i++ {
+// 			if s.load(i) != 0 {
+// 				return false
+// 			}
+// 		}
+// 	} else {
+// 		for i := minLen; i < tLen; i++ {
+// 			if t.load(i) != 0 {
+// 				return false
+// 			}
+// 		}
+// 	}
+// 	return true
+// }
+
+// // Union return the union set of s and t.
+// func sliceSetUnion(s, t *SliceSet) *SliceSet {
+// 	var p SliceSet
+// 	sn, tn := s.getNode(), t.getNode()
+// 	sLen, tLen := int(sn.getLen()), int(tn.getLen())
+// 	maxLen, minLen := maxmin(sLen, tLen)
+// 	p.onceInit(max(s.Cap(), t.Cap()))
+
+// 	// [0-minLen]
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)|t.load(i))
+// 	}
+// 	// [minLen-maxLen]
+// 	if sLen < tLen {
+// 		for i := minLen; i < maxLen; i++ {
+// 			p.store(i, t.load(i))
+// 		}
+// 	} else {
+// 		for i := minLen; i < maxLen; i++ {
+// 			p.store(i, s.load(i))
+// 		}
+// 	}
+
+// 	return &p
+// }
+
+// // Intersect return the intersection set of s and t
+// func sliceSetIntersect(s, t *SliceSet) *SliceSet {
+// 	var p SliceSet
+// 	sn, tn := s.getNode(), t.getNode()
+// 	sLen, tLen := int(sn.getLen()), int(tn.getLen())
+// 	minLen := min(sLen, tLen)
+// 	p.onceInit(min(s.Cap(), t.Cap()))
+
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)&t.load(i))
+// 	}
+// 	return &p
+// }
+
+// // Difference return the difference set of s and t
+// func sliceSetDifference(s, t *SliceSet) *SliceSet {
+// 	var p SliceSet
+// 	sn, tn := s.getNode(), t.getNode()
+// 	sLen, tLen := int(sn.getLen()), int(tn.getLen())
+// 	minLen := min(sLen, tLen)
+// 	p.onceInit(s.Cap())
+
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)&^t.load(i))
+// 	}
+// 	if sLen > tLen {
+// 		for i := minLen; i < sLen; i++ {
+// 			p.store(i, s.load(i))
+// 		}
+// 	}
+
+// 	return &p
+// }
+
+// // Complement return the complement set of s and t
+// // item in s but not in t, and not in s but in t.
+// func sliceSetComplement(s, t *SliceSet) *SliceSet {
+// 	var p SliceSet
+// 	sn, tn := s.getNode(), t.getNode()
+// 	sLen, tLen := int(sn.getLen()), int(tn.getLen())
+// 	maxLen, minLen := maxmin(sLen, tLen)
+// 	p.onceInit(max(s.Cap(), t.Cap()))
+
+// 	for i := 0; i < minLen; i++ {
+// 		p.store(i, s.load(i)^t.load(i))
+// 	}
+// 	for i := minLen; i < maxLen; i++ {
+// 		if sLen > tLen {
+// 			p.store(i, s.load(i))
+// 		} else {
+// 			p.store(i, t.load(i))
+// 		}
+// 	}
+
+// 	return &p
+// }
