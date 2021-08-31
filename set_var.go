@@ -85,6 +85,10 @@ func (n *node) getLen() uint32 {
 	return atomic.LoadUint32(&n.len)
 }
 
+func (n *SliceSet) getLen() uint32 {
+	return n.getNode().getLen()
+}
+
 func (n *node) getCap() uint32 {
 	return atomic.LoadUint32(&n.cap)
 }
