@@ -27,7 +27,7 @@ func benchMap(b *testing.B, bench bench) {
 		set.NewOption31(preInitSize),
 		set.NewOption32(preInitSize),
 		// &set.Base{},
-		&set.Fasten{},
+		&set.Dynamic{},
 		// &MutexSet{},
 	} {
 		b.Run(fmt.Sprintf("%T", m), func(b *testing.B) {
@@ -258,6 +258,69 @@ func (op opBench) call(t opType, invert bool) {
 			set.Complement(op.x, op.y)
 		}
 	}
+}
+
+func getStatic(cap, m, n int) *set.Static {
+	var s set.Static
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return &s
+}
+
+func getTrends(cap, m, n int) *set.Trends {
+	var s set.Trends
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return &s
+}
+
+func getMutexSet(cap, m, n int) *MutexSet {
+	var s MutexSet
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return &s
+}
+
+func getOpt15(cap, m, n int) *set.Option {
+	s := set.NewOption15(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
+}
+
+func getOpt16(cap, m, n int) *set.Option {
+	s := set.NewOption16(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
+}
+
+func getOpt31(cap, m, n int) *set.Option {
+	s := set.NewOption31(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
+}
+
+func getOpt32(cap, m, n int) *set.Option {
+	s := set.NewOption32(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
 }
 
 func call(b *testing.B, op opType, invert bool) {

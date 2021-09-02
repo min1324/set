@@ -4,6 +4,23 @@ import (
 	"testing"
 )
 
+func getOpt15(cap, m, n int) *Option {
+	s := NewOption15(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
+}
+
+func getOpt32(cap, m, n int) *Option {
+	s := NewOption32(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
+}
 func Test_entryGrowWork(t *testing.T) {
 	s := NewOption31(100)
 	for i := 0; i < 120; i++ {
@@ -60,7 +77,7 @@ type testOptArg struct {
 	dst  *entry
 	want *entry // must the same type with dst
 	max  int
-	f    func(old, new *entry)
+	f    func(old, new opSet)
 }
 
 func optConvertTest(t *testing.T, args []testOptArg) {
@@ -166,4 +183,58 @@ func Test_convert(t *testing.T) {
 			f:    u31To32,
 		},
 	})
+}
+
+func Test_optConvert(t *testing.T) {
+	src := getOpt15(10, 0, 10)
+	dst := getOpt32(50, 0, 10)
+	type args struct {
+		s   *Option
+		typ optEntryTyp
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		// TODO: Add test cases.
+		{
+			name: "15to32",
+			args: args{
+				s:   src,
+				typ: optEntry32,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := optConvert(tt.args.s, tt.args.typ); got != tt.want {
+				t.Errorf("optConvert() = %v, want %v", got, tt.want)
+			} else {
+				if !Equal(src, dst) {
+					t.Errorf("optConvert() miss: %v", miss(dst, src))
+				}
+			}
+		})
+	}
+}
+
+func miss(want, got Set) (miss []uint32) {
+	w := Items(want)
+	g := Items(got)
+	miss = make([]uint32, 0, initSize)
+	i, j := 0, 0
+	for i < len(w) && j < len(g) {
+		if w[i] != g[j] {
+			miss = append(miss, w[i])
+			i += 1
+		}
+		i += 1
+		j += 1
+	}
+	for ; i < len(w); i++ {
+		miss = append(miss, w[i])
+	}
+	return miss
 }

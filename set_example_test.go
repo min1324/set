@@ -33,18 +33,47 @@ func ExampleInit() {
 	// {0}
 }
 
-func ExampleTrends_range() {
-	s := set.NewTrends(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
+func ExampleStatic_range() {
+	s := set.NewStatic(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
 	s.Store(7)
 	s.Delete(2)
+	fmt.Println(s)
 	s.Range(func(x uint32) bool {
 		fmt.Printf("%d ", x)
 		return true
 	})
 	// Output:
+	// {0 1 7 31 32 63 64 91 92 99 100}
 	// 0 1 7 31 32 63 64 91 92 99 100
 }
 
+func ExampleTrends_range() {
+	s := set.NewTrends(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
+	s.Store(7)
+	s.Delete(2)
+	fmt.Println(s)
+	s.Range(func(x uint32) bool {
+		fmt.Printf("%d ", x)
+		return true
+	})
+	// Output:
+	// {0 1 7 31 32 63 64 91 92 99 100}
+	// 0 1 7 31 32 63 64 91 92 99 100
+}
+
+func ExampleOption_range() {
+	s := set.NewOption32(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
+	s.Store(7)
+	s.Delete(2)
+	fmt.Println(s)
+	s.Range(func(x uint32) bool {
+		fmt.Printf("%d ", x)
+		return true
+	})
+	// Output:
+	// {0 1 7 31 32 63 64 91 92 99 100}
+	// 0 1 7 31 32 63 64 91 92 99 100
+}
 func ExampleUnion() {
 	s := set.NewTrends(36, 0, 1, 2, 3, 4, 5)
 	p := set.NewTrends(100, 4, 5, 6, 7, 8)
