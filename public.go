@@ -40,9 +40,6 @@ func (s *Static) String() string { return String(s) }
 // String returns the set as a string of the form "{1 2 3}".
 func (s *Dynamic) String() string { return String(s) }
 
-// // String returns the set as a string of the form "{1 2 3}".
-// func (s *Option) String() string { return String(s) }
-
 // New return a set with items args.
 // the frist arg is cap,
 // if no arg or cap<1,return an init Trends set.
@@ -92,20 +89,11 @@ const (
 	// two type relation.
 	rtStaticStatic  = rtStatic<<bit | rtStatic
 	rtStaticDynamic = rtStatic<<bit | rtDynamic
-	// rtStaticOption = rtStatic<<bit | rtOption
 
 	rtDynamicStatic  = rtDynamic<<bit | rtStatic
 	rtDynamicDynamic = rtDynamic<<bit | rtDynamic
-	// rtTrendsOption = rtTrends<<bit | rtOption
-
-	// rtOptionStatic = rtOption<<bit | rtStatic
-	// rtOptionTrends = rtOption<<bit | rtTrends
-	// rtOptionOption = rtOption<<bit | rtOption
 
 	rtOtherSame = rtOther<<bit | rtOther
-
-	// other case is two type not the same or know.
-	// exp: rtOtherNoSame = rtOther<<bit | rtOption
 )
 
 // reflactType = s<<bit | t,keep sync with const
@@ -167,16 +155,6 @@ var readOnlyCB map[reflactType]cbFunc = map[reflactType]cbFunc{
 		sameType(xx, cy, &p)
 		return &p
 	},
-	// rtStaticOption: func(x, y Set, flag opFlag, sameType opSameType) Set {
-	// 	xx := x.(*Static)
-	// 	yy := y.(*Option)
-	// 	cy := yy.Static()
-	// 	var p Static
-	// 	cap := opGetMax(xx.getMax(), yy.getMax(), flag)
-	// 	p.OnceInit(cap)
-	// 	sameType(xx, cy, &p)
-	// 	return &p
-	// },
 	rtDynamicDynamic: func(x, y Set, flag opFlag, sameType opSameType) Set {
 		xx := x.(*Dynamic)
 		yy := y.(*Dynamic)
@@ -196,60 +174,6 @@ var readOnlyCB map[reflactType]cbFunc = map[reflactType]cbFunc{
 		sameType(cx, yy, &p)
 		return &p
 	},
-	// rtTrendsOption: func(x, y Set, flag opFlag, sameType opSameType) Set {
-	// 	xx := x.(*Trends)
-	// 	yy := y.(*Option)
-	// 	cy := yy.Trends()
-	// 	var p Trends
-	// 	cap := opGetMax(xx.getMax(), yy.getMax(), flag)
-	// 	p.OnceInit(cap)
-	// 	sameType(xx, cy, &p)
-	// 	return &p
-	// },
-	// rtOptionStatic: func(x, y Set, flag opFlag, sameType opSameType) Set {
-	// 	xx := x.(*Option)
-	// 	yy := y.(*Static)
-	// 	cx := xx.Static()
-	// 	var p Static
-	// 	cap := opGetMax(xx.getMax(), yy.getMax(), flag)
-	// 	p.OnceInit(cap)
-	// 	sameType(cx, yy, &p)
-	// 	return &p
-	// },
-	// rtOptionTrends: func(x, y Set, flag opFlag, sameType opSameType) Set {
-	// 	xx := x.(*Option)
-	// 	yy := y.(*Trends)
-	// 	cx := xx.Trends()
-	// 	var p Trends
-	// 	cap := opGetMax(xx.getMax(), yy.getMax(), flag)
-	// 	p.OnceInit(cap)
-	// 	sameType(cx, yy, &p)
-	// 	return &p
-	// },
-	// rtOptionOption: func(x, y Set, flag opFlag, sameType opSameType) Set {
-	// 	xx := x.(*Option)
-	// 	yy := y.(*Option)
-	// 	xe := xx.getEntry()
-	// 	ye := yy.getEntry()
-	// 	cap := opGetMax(xx.getMax(), yy.getMax(), flag)
-
-	// 	if xe.typ == ye.typ || (xe.typ == optEntry15 && ye.typ == optEntry16) ||
-	// 		xe.typ == optEntry16 && ye.typ == optEntry15 {
-	// 		var p Option
-	// 		p.init(cap, xe.typ)
-	// 		sameType(xx, yy, &p)
-	// 		return &p
-	// 	}
-
-	// 	// x,y 不同,31+32,15+31,15+32,bit+31,bit+32
-	// 	// 转成32
-	// 	var p Option
-	// 	p.init(cap, optEntry32)
-
-	// 	m, n := xx.Static(), yy.Static()
-	// 	sameType(m, n, &p)
-	// 	return &p
-	// },
 }
 
 // get s,t reflact type, return two type relation.
@@ -388,13 +312,6 @@ func Copy(s Set) Set {
 		p.OnceInit(int(ss.getMax()))
 		sameTypeCopy(ss, &p)
 		return &p
-		// case OptionType:
-		// 	ss := s.(*Option)
-		// 	n := ss.getEntry()
-		// 	var p Option
-		// 	p.init(int(ss.getMax()), n.typ)
-		// 	sameTypeCopy(ss, &p)
-		// 	return &p
 	}
 	typ := reflect.TypeOf(s)
 	p := reflect.New(typ.Elem()).Interface().(Set)
@@ -966,44 +883,6 @@ func u16To32(old, new opSet) {
 // 	}
 // }
 
-// // Static return a copy of option
-// func (s *Option) Static() *Static {
-// 	e := s.getEntry()
-// 	maxcap := s.getMax()
-
-// 	old := newOptEntry(maxcap, e.typ)
-// 	sameTypeCopy(e, old)
-
-// 	if old.typ != optEntry32 {
-// 		ne := newOptEntry32(maxcap)
-// 		optEvacuteEntry(old, ne, maxcap)
-// 		old = ne
-// 	}
-// 	var p Static
-// 	p.onceInit(int(s.getMax()))
-// 	sameTypeCopy(old, &p)
-// 	return &p
-// }
-
-// // Static return a copy of option
-// func (s *Option) Trends() *Trends {
-// 	e := s.getEntry()
-// 	maxcap := s.getMax()
-
-// 	old := newOptEntry(maxcap, e.typ)
-// 	sameTypeCopy(e, old)
-
-// 	if old.typ != optEntry31 {
-// 		ne := newOptEntry31(maxcap)
-// 		optEvacuteEntry(old, ne, maxcap)
-// 		old = ne
-// 	}
-// 	var p Trends
-// 	p.onceInit(int(s.getMax()))
-// 	sameTypeCopy(old, &p)
-// 	return &p
-// }
-
 // Adds Store all x in args to the set
 func Adds(s Set, args ...uint32) {
 	for _, x := range args {
@@ -1056,17 +935,6 @@ func Size(s Set) int {
 			})
 			atomic.CompareAndSwapUint32(&e.count, 0, size)
 		}
-	// case OptionType:
-	// 	ss := s.(*Option)
-	// 	e := ss.getEntry()
-	// 	size = e.getCount()
-	// 	if size == 0 {
-	// 		ss.Range(func(x uint32) bool {
-	// 			size += 1
-	// 			return true
-	// 		})
-	// 		atomic.CompareAndSwapUint32(&e.count, 0, size)
-	// 	}
 	default:
 		s.Range(func(x uint32) bool {
 			size += 1
@@ -1098,15 +966,6 @@ func Clear(s Set) {
 				break
 			}
 		}
-	// case OptionType:
-	// 	ss := s.(*Option)
-	// 	for {
-	// 		e := ss.getEntry()
-	// 		ne := newOptEntry(ss.getMax(), e.typ)
-	// 		if atomic.CompareAndSwapPointer(&ss.node, unsafe.Pointer(e), unsafe.Pointer(ne)) {
-	// 			break
-	// 		}
-	// 	}
 	default:
 		s.Range(func(x uint32) bool {
 			s.Delete(x)

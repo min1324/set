@@ -117,25 +117,9 @@ func opArgsTest(t *testing.T, r opArgs, f opTestFunc) {
 		},
 		{
 			name: "getTrends",
-			val:  getTrends(cap1, x1, y1),
+			val:  getDynamic(cap1, x1, y1),
 		},
 
-		// {
-		// 	name: "getOpt15",
-		// 	val:  getOpt15(cap1, x1, y1),
-		// },
-		// {
-		// 	name: "getOpt16",
-		// 	val:  getOpt16(cap1, x1, y1),
-		// },
-		// {
-		// 	name: "getOpt31",
-		// 	val:  getOpt31(cap1, x1, y1),
-		// },
-		// {
-		// 	name: "getOpt32",
-		// 	val:  getOpt32(cap1, x1, y1),
-		// },
 		{
 			name: "getMutexSet",
 			val:  getMutexSet(cap1, x1, y1),
@@ -148,25 +132,8 @@ func opArgsTest(t *testing.T, r opArgs, f opTestFunc) {
 		},
 		{
 			name: "getTrends",
-			val:  getTrends(cap2, x2, y2),
+			val:  getDynamic(cap2, x2, y2),
 		},
-
-		// {
-		// 	name: "getOpt15",
-		// 	val:  getOpt15(cap2, x2, y2),
-		// },
-		// {
-		// 	name: "getOpt16",
-		// 	val:  getOpt16(cap2, x2, y2),
-		// },
-		// {
-		// 	name: "getOpt31",
-		// 	val:  getOpt31(cap2, x2, y2),
-		// },
-		// {
-		// 	name: "getOpt32",
-		// 	val:  getOpt32(cap2, x2, y2),
-		// },
 		{
 			name: "getMutexSet",
 			val:  getMutexSet(cap2, x2, y2),
@@ -272,14 +239,14 @@ func TestEqual(t *testing.T) {
 		t.Errorf("want:m=n,got false")
 	}
 
-	tm := getTrends(0, 0, 50)
-	tn := getTrends(80, 0, 50)
+	tm := getDynamic(0, 0, 50)
+	tn := getDynamic(80, 0, 50)
 	if !set.Equal(tm, tn) {
 		t.Errorf("want:tm=tn,got false")
 	}
 
-	tm = getTrends(40, 0, 50)
-	tn = getTrends(80, 0, 50)
+	tm = getDynamic(40, 0, 50)
+	tn = getDynamic(80, 0, 50)
 	if set.Equal(tm, tn) {
 		t.Errorf("want:tm!=tn,got true")
 	}
@@ -333,34 +300,6 @@ func TestCopy(t *testing.T) {
 			},
 			want: set.NewDynamic(cap, arg...),
 		},
-		// {
-		// 	name: "NewOpt16S",
-		// 	args: args{
-		// 		s: set.NewOption16(cap, arg...),
-		// 	},
-		// 	want: set.NewOption16(cap, arg...),
-		// },
-		// {
-		// 	name: "NewOpt16T",
-		// 	args: args{
-		// 		s: set.NewOption15(cap, arg...),
-		// 	},
-		// 	want: set.NewOption15(cap, arg...),
-		// },
-		// {
-		// 	name: "NewOpt31",
-		// 	args: args{
-		// 		s: set.NewOption31(cap, arg...),
-		// 	},
-		// 	want: set.NewOption31(cap, arg...),
-		// },
-		// {
-		// 	name: "NewOpt32",
-		// 	args: args{
-		// 		s: set.NewOption32(cap, arg...),
-		// 	},
-		// 	want: set.NewOption32(cap, arg...),
-		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -454,53 +393,6 @@ func TestToTrends(t *testing.T) {
 	}
 }
 
-// func Test_getItemsMaxMin(t *testing.T) {
-// 	s := set.New(10, 0, 1, 2, 3, 4)
-// 	a := set.New(30, 2, 3, 4, 5, 6, 7)
-// 	type args struct {
-// 		s set.Set
-// 		t set.Set
-// 	}
-// 	tests := []struct {
-// 		name     string
-// 		args     args
-// 		wantAs   []uint32
-// 		wantAt   []uint32
-// 		wantCmax int
-// 		wantCmin int
-// 	}{
-// 		// TODO: Add test cases.
-// 		{
-// 			name: "",
-// 			args: args{
-// 				s: s,
-// 				t: a,
-// 			},
-// 			wantAs:   []uint32{0, 1, 2, 3, 4},
-// 			wantAt:   []uint32{2, 3, 4, 5, 6, 7},
-// 			wantCmax: 7,
-// 			wantCmin: 4,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			gotAs, gotAt, gotCmax, gotCmin := getItemsMaxMin(tt.args.s, tt.args.t)
-// 			if !reflect.DeepEqual(gotAs, tt.wantAs) {
-// 				t.Errorf("getMsg() gotAs = %v, want %v", gotAs, tt.wantAs)
-// 			}
-// 			if !reflect.DeepEqual(gotAt, tt.wantAt) {
-// 				t.Errorf("getMsg() gotAt = %v, want %v", gotAt, tt.wantAt)
-// 			}
-// 			if gotCmax != tt.wantCmax {
-// 				t.Errorf("getMsg() gotCmax = %v, want %v", gotCmax, tt.wantCmax)
-// 			}
-// 			if gotCmin != tt.wantCmin {
-// 				t.Errorf("getMsg() gotCmin = %v, want %v", gotCmin, tt.wantCmin)
-// 			}
-// 		})
-// 	}
-// }
-
 func TestItems(t *testing.T) {
 	type args struct {
 		s set.Set
@@ -511,13 +403,7 @@ func TestItems(t *testing.T) {
 		want []uint32
 	}{
 		// TODO: Add test cases.
-		// {
-		// 	name: "getOpt15",
-		// 	args: args{
-		// 		s: getOpt15(10, 0, 10),
-		// 	},
-		// 	want: []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-		// },
+
 		{
 			name: "getStatic",
 			args: args{
@@ -528,7 +414,7 @@ func TestItems(t *testing.T) {
 		{
 			name: "getTrends",
 			args: args{
-				s: getTrends(10, 0, 10),
+				s: getDynamic(10, 0, 10),
 			},
 			want: []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
 		},
@@ -569,31 +455,17 @@ func TestNull(t *testing.T) {
 		{
 			name: "null",
 			args: args{
-				s: getTrends(100, 0, 0),
+				s: getDynamic(100, 0, 0),
 			},
 			want: true,
 		},
 		{
 			name: "not null",
 			args: args{
-				s: getTrends(100, 0, 10),
+				s: getDynamic(100, 0, 10),
 			},
 			want: false,
 		},
-		// {
-		// 	name: "null",
-		// 	args: args{
-		// 		s: getOpt15(100, 0, 0),
-		// 	},
-		// 	want: true,
-		// },
-		// {
-		// 	name: "not null",
-		// 	args: args{
-		// 		s: getOpt16(100, 0, 10),
-		// 	},
-		// 	want: false,
-		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -631,38 +503,17 @@ func TestSize(t *testing.T) {
 		{
 			name: "getTrends",
 			args: args{
-				s: getTrends(100, 5, 10),
+				s: getDynamic(100, 5, 10),
 			},
 			want: 5,
 		},
 		{
 			name: "getTrends",
 			args: args{
-				s: getTrends(100, 5, 5),
+				s: getDynamic(100, 5, 5),
 			},
 			want: 0,
 		},
-		// {
-		// 	name: "getOpt15",
-		// 	args: args{
-		// 		s: getOpt15(100, 50, 100),
-		// 	},
-		// 	want: 50,
-		// },
-		// {
-		// 	name: "getOpt16",
-		// 	args: args{
-		// 		s: getOpt16(100, 50, 100),
-		// 	},
-		// 	want: 50,
-		// },
-		// {
-		// 	name: "getOpt16",
-		// 	args: args{
-		// 		s: set.Union(getOpt16(100, 50, 100), getOpt32(100, 0, 50)),
-		// 	},
-		// 	want: 100,
-		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -682,12 +533,6 @@ func TestClear(t *testing.T) {
 		args args
 	}{
 		// TODO: Add test cases.
-		// {
-		// 	name: "getOpt15",
-		// 	args: args{
-		// 		s: getOpt15(100, 10, 20),
-		// 	},
-		// },
 		{
 			name: "getStatic",
 			args: args{
@@ -697,7 +542,7 @@ func TestClear(t *testing.T) {
 		{
 			name: "getTrends",
 			args: args{
-				s: getTrends(100, 10, 20),
+				s: getDynamic(100, 10, 20),
 			},
 		},
 	}

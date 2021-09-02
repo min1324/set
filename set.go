@@ -6,9 +6,12 @@ const (
 	// so maximum = 1<<31*31
 	// but the memory had not enough space.
 	// set the maximum= 1<<24*31
-	maximum   uint32 = 1 << 24 * 31
-	initCap          = 8
-	freezeBit        = 1 << 31
+	maximum uint32 = 1 << 24 * 31
+
+	freezeBit = 1 << 31
+
+	initCap  = 8
+	initSize = 1 << 8
 )
 
 // Set

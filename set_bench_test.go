@@ -22,13 +22,6 @@ func benchMap(b *testing.B, bench bench) {
 	for _, m := range [...]Interface{
 		&set.Dynamic{},
 		&set.Static{},
-		// set.NewOption15(preInitSize),
-		// set.NewOption16(preInitSize),
-		// set.NewOption31(preInitSize),
-		// set.NewOption32(preInitSize),
-		// &set.Base{},
-		// &set.Dynamic{},
-		// &MutexSet{},
 	} {
 		b.Run(fmt.Sprintf("%T", m), func(b *testing.B) {
 			m = reflect.New(reflect.TypeOf(m).Elem()).Interface().(Interface)
@@ -269,7 +262,7 @@ func getStatic(cap, m, n int) *set.Static {
 	return &s
 }
 
-func getTrends(cap, m, n int) *set.Dynamic {
+func getDynamic(cap, m, n int) *set.Dynamic {
 	var s set.Dynamic
 	s.OnceInit(cap)
 	for i := m; i < n; i++ {
@@ -287,42 +280,6 @@ func getMutexSet(cap, m, n int) *MutexSet {
 	return &s
 }
 
-// func getOpt15(cap, m, n int) *set.Option {
-// 	s := set.NewOption15(cap)
-// 	s.OnceInit(cap)
-// 	for i := m; i < n; i++ {
-// 		s.Store(uint32(i))
-// 	}
-// 	return s
-// }
-
-// func getOpt16(cap, m, n int) *set.Option {
-// 	s := set.NewOption16(cap)
-// 	s.OnceInit(cap)
-// 	for i := m; i < n; i++ {
-// 		s.Store(uint32(i))
-// 	}
-// 	return s
-// }
-
-// func getOpt31(cap, m, n int) *set.Option {
-// 	s := set.NewOption31(cap)
-// 	s.OnceInit(cap)
-// 	for i := m; i < n; i++ {
-// 		s.Store(uint32(i))
-// 	}
-// 	return s
-// }
-
-// func getOpt32(cap, m, n int) *set.Option {
-// 	s := set.NewOption32(cap)
-// 	s.OnceInit(cap)
-// 	for i := m; i < n; i++ {
-// 		s.Store(uint32(i))
-// 	}
-// 	return s
-// }
-
 func call(b *testing.B, op opType, invert bool) {
 	const (
 		cap1   = 200
@@ -336,39 +293,13 @@ func call(b *testing.B, op opType, invert bool) {
 
 	for _, v := range [...]opBench{
 		{"SS", getStatic(cap1, start1, end1), getStatic(cap2, start2, end2)},
-		{"ST", getStatic(cap1, start1, end1), getTrends(cap2, start2, end2)},
-		// {"S15", getStatic(cap1, start1, end1), getOpt15(cap2, start2, end2)},
-		// {"S16", getStatic(cap1, start1, end1), getOpt16(cap2, start2, end2)},
-		// {"S31", getStatic(cap1, start1, end1), getOpt31(cap2, start2, end2)},
-		// {"S32", getStatic(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+		{"ST", getStatic(cap1, start1, end1), getDynamic(cap2, start2, end2)},
 
-		{"TT", getTrends(cap1, start1, end1), getTrends(cap2, start2, end2)},
-		// {"T15", getTrends(cap1, start1, end1), getOpt15(cap2, start2, end2)},
-		// {"T16", getTrends(cap1, start1, end1), getOpt16(cap2, start2, end2)},
-		// {"T31", getTrends(cap1, start1, end1), getOpt31(cap2, start2, end2)},
-		// {"T32", getTrends(cap1, start1, end1), getOpt32(cap2, start2, end2)},
-
-		// {"1515", getOpt15(cap1, start1, end1), getOpt15(cap2, start2, end2)},
-		// {"1516", getOpt15(cap1, start1, end1), getOpt16(cap2, start2, end2)},
-		// {"1531", getOpt15(cap1, start1, end1), getOpt31(cap2, start2, end2)},
-		// {"1532", getOpt15(cap1, start1, end1), getOpt32(cap2, start2, end2)},
-
-		// {"1616", getOpt16(cap1, start1, end1), getOpt16(cap2, start2, end2)},
-		// {"1631", getOpt16(cap1, start1, end1), getOpt31(cap2, start2, end2)},
-		// {"1632", getOpt16(cap1, start1, end1), getOpt32(cap2, start2, end2)},
-
-		// {"3131", getOpt31(cap1, start1, end1), getOpt31(cap2, start2, end2)},
-		// {"3132", getOpt31(cap1, start1, end1), getOpt32(cap2, start2, end2)},
-
-		// {"3232", getOpt32(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+		{"TT", getDynamic(cap1, start1, end1), getDynamic(cap2, start2, end2)},
 
 		{"MM", getMutexSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
 		{"MS", getMutexSet(cap1, start1, end1), getStatic(cap2, start2, end2)},
-		{"MT", getMutexSet(cap1, start1, end1), getTrends(cap2, start2, end2)},
-		// {"M15", getMutexSet(cap1, start1, end1), getOpt15(cap2, start2, end2)},
-		// {"M16", getMutexSet(cap1, start1, end1), getOpt16(cap2, start2, end2)},
-		// {"M31", getMutexSet(cap1, start1, end1), getOpt31(cap2, start2, end2)},
-		// {"M32", getMutexSet(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+		{"MT", getMutexSet(cap1, start1, end1), getDynamic(cap2, start2, end2)},
 	} {
 		b.Run(v.name, func(b *testing.B) {
 			b.ResetTimer()

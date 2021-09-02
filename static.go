@@ -5,10 +5,6 @@ import (
 	"sync/atomic"
 )
 
-const (
-	initSize = 1 << 8
-)
-
 // Static a set of non-negative integers.
 // Its zero value represents the empty set.
 //
@@ -34,7 +30,7 @@ type Static struct {
 	// len(items),idx cursor
 	len uint32
 
-	items []uint32
+	data []uint32
 }
 
 func (s *Static) onceInit(max int) {
@@ -46,7 +42,7 @@ func (s *Static) onceInit(max int) {
 			max = int(maximum)
 		}
 		num := max>>5 + 1
-		s.items = make([]uint32, num)
+		s.data = make([]uint32, num)
 		atomic.StoreUint32(&s.cap, uint32(num))
 		atomic.StoreUint32(&s.max, uint32(max))
 	})
@@ -64,13 +60,13 @@ func (s *Static) Init() { s.onceInit(initSize) }
 func (s *Static) getLen() uint32    { return atomic.LoadUint32(&s.len) }
 func (s *Static) getCap() uint32    { return atomic.LoadUint32(&s.cap) }
 func (s *Static) getMax() uint32    { return atomic.LoadUint32(&s.max) }
-func (s *Static) load(i int) uint32 { return atomic.LoadUint32(&s.items[i]) }
+func (s *Static) load(i int) uint32 { return atomic.LoadUint32(&s.data[i]) }
 
 func (s *Static) store(i int, x uint32) {
 	if s.overflow(i) {
 		return
 	}
-	atomic.StoreUint32(&s.items[i], x)
+	atomic.StoreUint32(&s.data[i], x)
 }
 
 // in 64 bit platform
@@ -128,7 +124,7 @@ func (s *Static) LoadOrStore(x uint32) (loaded, ok bool) {
 			// already in set
 			return true, true
 		}
-		if atomic.CompareAndSwapUint32(&s.items[idx], item, item|(1<<mod)) {
+		if atomic.CompareAndSwapUint32(&s.data[idx], item, item|(1<<mod)) {
 			atomic.AddUint32(&s.count, 1)
 			return false, true
 		}
@@ -162,7 +158,7 @@ func (s *Static) LoadAndDelete(x uint32) (loaded, ok bool) {
 		if (item>>mod)&1 == 0 {
 			return false, true
 		}
-		if atomic.CompareAndSwapUint32(&s.items[idx], item, item&^(1<<mod)) {
+		if atomic.CompareAndSwapUint32(&s.data[idx], item, item&^(1<<mod)) {
 			atomic.AddUint32(&s.count, ^uint32(0))
 			return true, true
 		}
