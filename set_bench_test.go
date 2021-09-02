@@ -20,11 +20,15 @@ type bench struct {
 
 func benchMap(b *testing.B, bench bench) {
 	for _, m := range [...]Interface{
-		&set.SliceSet{},
-		&set.IntSet{},
-		&MutexSet{},
-		// set.NewIntOpt(preInitSize),
-		// set.NewVarOpt(preInitSize),
+		&set.Trends{},
+		&set.Static{},
+		set.NewOption15(preInitSize),
+		set.NewOption16(preInitSize),
+		set.NewOption31(preInitSize),
+		set.NewOption32(preInitSize),
+		// &set.Base{},
+		&set.Fasten{},
+		// &MutexSet{},
 	} {
 		b.Run(fmt.Sprintf("%T", m), func(b *testing.B) {
 			m = reflect.New(reflect.TypeOf(m).Elem()).Interface().(Interface)
@@ -165,10 +169,9 @@ func BenchmarkLoadAndDeleteBalanced(b *testing.B) {
 func BenchmarkLoadAndDeleteUnique(b *testing.B) {
 	benchMap(b, bench{
 		setup: func(b *testing.B, m Interface) {
-			for i := 0; i < m.Cap(); i++ {
-				if !m.Store(uint32(i)) {
-					b.Errorf("not store:%d", i)
-				}
+			m.OnceInit(preInitSize)
+			for i := 0; i < preInitSize; i++ {
+				m.Store(uint32(i))
 			}
 		},
 
@@ -259,26 +262,50 @@ func (op opBench) call(t opType, invert bool) {
 
 func call(b *testing.B, op opType, invert bool) {
 	const (
-		cap1   = 100
+		cap1   = 200
 		start1 = 0
 		end1   = 100
 
-		cap2   = 150
+		cap2   = 200
 		start2 = 40
 		end2   = 150
 	)
 
 	for _, v := range [...]opBench{
-		{"II", getIntSet(cap1, start1, end1), getIntSet(cap2, start2, end2)},
-		{"IS", getIntSet(cap1, start1, end1), getSliceSet(cap2, start2, end2)},
-		{"IM", getIntSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
-		// {"IF", getIntSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
-		{"SS", getSliceSet(cap1, start1, end1), getSliceSet(cap2, start2, end2)},
-		{"SM", getSliceSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
-		// {"SF", getSliceSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
+		{"SS", getStatic(cap1, start1, end1), getStatic(cap2, start2, end2)},
+		{"ST", getStatic(cap1, start1, end1), getTrends(cap2, start2, end2)},
+		{"S15", getStatic(cap1, start1, end1), getOpt15(cap2, start2, end2)},
+		{"S16", getStatic(cap1, start1, end1), getOpt16(cap2, start2, end2)},
+		{"S31", getStatic(cap1, start1, end1), getOpt31(cap2, start2, end2)},
+		{"S32", getStatic(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+
+		{"TT", getTrends(cap1, start1, end1), getTrends(cap2, start2, end2)},
+		{"T15", getTrends(cap1, start1, end1), getOpt15(cap2, start2, end2)},
+		{"T16", getTrends(cap1, start1, end1), getOpt16(cap2, start2, end2)},
+		{"T31", getTrends(cap1, start1, end1), getOpt31(cap2, start2, end2)},
+		{"T32", getTrends(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+
+		{"1515", getOpt15(cap1, start1, end1), getOpt15(cap2, start2, end2)},
+		{"1516", getOpt15(cap1, start1, end1), getOpt16(cap2, start2, end2)},
+		{"1531", getOpt15(cap1, start1, end1), getOpt31(cap2, start2, end2)},
+		{"1532", getOpt15(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+
+		{"1616", getOpt16(cap1, start1, end1), getOpt16(cap2, start2, end2)},
+		{"1631", getOpt16(cap1, start1, end1), getOpt31(cap2, start2, end2)},
+		{"1632", getOpt16(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+
+		{"3131", getOpt31(cap1, start1, end1), getOpt31(cap2, start2, end2)},
+		{"3132", getOpt31(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+
+		{"3232", getOpt32(cap1, start1, end1), getOpt32(cap2, start2, end2)},
+
 		{"MM", getMutexSet(cap1, start1, end1), getMutexSet(cap2, start2, end2)},
-		// {"MF", getMutexSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
-		// {"FF", getFixedSet(cap1, start1, end1), getFixedSet(cap2, start2, end2)},
+		{"MS", getMutexSet(cap1, start1, end1), getStatic(cap2, start2, end2)},
+		{"MT", getMutexSet(cap1, start1, end1), getTrends(cap2, start2, end2)},
+		{"M15", getMutexSet(cap1, start1, end1), getOpt15(cap2, start2, end2)},
+		{"M16", getMutexSet(cap1, start1, end1), getOpt16(cap2, start2, end2)},
+		{"M31", getMutexSet(cap1, start1, end1), getOpt31(cap2, start2, end2)},
+		{"M32", getMutexSet(cap1, start1, end1), getOpt32(cap2, start2, end2)},
 	} {
 		b.Run(v.name, func(b *testing.B) {
 			b.ResetTimer()

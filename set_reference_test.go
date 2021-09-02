@@ -9,17 +9,12 @@ import (
 
 type Interface interface {
 	OnceInit(cap int)
-	Cap() int
-	Len() int
-	Clear()
-	Null() bool
 	Load(x uint32) bool
 	Store(x uint32) bool
 	LoadOrStore(x uint32) (loaded, ok bool)
 	LoadAndDelete(x uint32) (loaded, ok bool)
 	Delete(x uint32) bool
 	Range(f func(x uint32) bool)
-	Items() []uint32
 }
 
 const (
@@ -220,10 +215,10 @@ func (s *MutexSet) Range(f func(x uint32) bool) {
 	}
 }
 
-// Len return the number of elements in set
+// Size return the number of elements in set
 // worst time complexity: worst: O(32*N)
 // best  time complexity: O(N)
-func (s *MutexSet) Len() int {
+func (s *MutexSet) Size() int {
 	var sum int
 	s.Range(func(x uint32) bool {
 		sum += 1

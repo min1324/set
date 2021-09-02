@@ -23,10 +23,6 @@ const (
 	opLoadOrStore   = setOp("LoadOrStore")
 	opLoadAndDelete = setOp("LoadAndDelete")
 	opRange         = setOp("Range")
-	opLen           = setOp("Len")
-	opClear         = setOp("Clear")
-	opNull          = setOp("Null")
-	opItems         = setOp("Items")
 )
 
 var setOps = [...]setOp{opLoad, opLoadOrStore, opLoadAndDelete}
@@ -82,102 +78,113 @@ func applyCalls(m Interface, calls []setCall) (results []setResult, final map[in
 	return results, final
 }
 
-func applyIntSet(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(new(set.IntSet), calls)
+type applyFunc func(calls []setCall) ([]setResult, map[interface{}]interface{})
+
+func applyStatic(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(new(set.Static), calls)
 }
 
-func applySliceSet(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(new(set.IntSet), calls)
+func applyTrends(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(new(set.Static), calls)
 }
 
 func applyMutex(calls []setCall) ([]setResult, map[interface{}]interface{}) {
 	return applyCalls(new(MutexSet), calls)
 }
 
-func applyFixed(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(new(set.Option), calls)
+func applyOpt32(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(set.NewOption32(int(maximum)), calls)
 }
 
-func applyFixedInt(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.NewIntOpt(int(maximum)), calls)
+func applyOpt31(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(set.NewOption31(int(maximum)), calls)
 }
 
-func applyFixedVar(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.NewVarOpt(int(maximum)), calls)
+func applyOpt16(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(set.NewOption16(int(maximum)), calls)
 }
 
-type applyFunc func(calls []setCall) ([]setResult, map[interface{}]interface{})
+func applyOpt15(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(set.NewOption15(int(maximum)), calls)
+}
 
-type applyStruct struct {
-	name string
-	applyFunc
+// func applyBase(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewBase(int(maximum)), calls)
+// }
+
+func applyFasten(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+	return applyCalls(set.NewFasten(int(maximum)), calls)
 }
 
 func applyMap(t *testing.T, standard applyFunc) {
-	for _, m := range [...]applyStruct{
-		{"IntSet", applyIntSet},
-		{"SliceSet", applySliceSet},
-		{"Mutex", applyMutex},
-		// {"Fixed", applyFixed},
-		// {"FixedInt", applyFixedInt},
-		// {"FixedVar", applyFixedVar},
+	for _, m := range [...]applyFunc{
+		applyStatic,
+		// applyTrends,
+		// applyOpt15,
+		// applyOpt16,
+		// applyOpt31,
+		// applyOpt32,
 	} {
-		t.Run(m.name, func(t *testing.T) {
-			if err := quick.CheckEqual(standard, m.applyFunc, nil); err != nil {
+		name := fmt.Sprintf("%T", standard) + "+" + fmt.Sprintf("%T", m)
+		t.Run(name, func(t *testing.T) {
+			if err := quick.CheckEqual(standard, m, nil); err != nil {
 				t.Error(err)
 			}
 		})
 	}
 }
 
-// func TestAll(t *testing.T) {
-// 	applyMap(t, applyMutex)
+func TestAll(t *testing.T) {
+	for _, m := range [...]applyFunc{
+		applyStatic,
+		// applyTrends,
+		// applyOpt15,
+		// applyOpt16,
+		// applyOpt31,
+		// applyOpt32,
+	} {
+		applyMap(t, m)
+	}
+}
+
+func TestMutex(t *testing.T) {
+	applyMap(t, applyMutex)
+}
+
+func TestStatic(t *testing.T) {
+	applyMap(t, applyStatic)
+}
+
+func TestTrends(t *testing.T) {
+	applyMap(t, applyTrends)
+}
+
+func TestOpt32(t *testing.T) {
+	applyMap(t, applyOpt32)
+}
+
+// func TestBase(t *testing.T) {
+// 	applyMap(t, applyBase)
 // }
 
-// func TestIntSetMatchsMutex(t *testing.T) {
-// 	if err := quick.CheckEqual(applyIntSet, applyMutex, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestFasten(t *testing.T) {
+	applyMap(t, applyFasten)
+}
 
-// func TestSliceSetMatchsMutex(t *testing.T) {
-// 	if err := quick.CheckEqual(applySliceSet, applyMutex, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestOpt31(t *testing.T) {
+	applyMap(t, applyOpt31)
+}
 
-// func TestMutexMatchsFixed(t *testing.T) {
-// 	if err := quick.CheckEqual(applyMutex, applyFixed, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestOpt16(t *testing.T) {
+	applyMap(t, applyOpt16)
+}
 
-// func TestMutexMatchsFixedInt(t *testing.T) {
-// 	if err := quick.CheckEqual(applyMutex, applyFixedInt, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
+func TestOpt15(t *testing.T) {
+	applyMap(t, applyOpt15)
+}
 
-// func TestIntSetMatchsFixedVar(t *testing.T) {
-// 	if err := quick.CheckEqual(applyMutex, applyFixedVar, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
-
-// func TestFixedMatchsFixedVar(t *testing.T) {
-// 	if err := quick.CheckEqual(applyFixedInt, applyFixedVar, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
-
-// func TestSliceMatchsFixedVar(t *testing.T) {
-// 	if err := quick.CheckEqual(applySliceSet, applyFixedVar, nil); err != nil {
-// 		t.Error(err)
-// 	}
-// }
-
-func getIntSet(cap, m, n int) *set.IntSet {
-	var s set.IntSet
+func getStatic(cap, m, n int) *set.Static {
+	var s set.Static
 	s.OnceInit(cap)
 	for i := m; i < n; i++ {
 		s.Store(uint32(i))
@@ -185,8 +192,8 @@ func getIntSet(cap, m, n int) *set.IntSet {
 	return &s
 }
 
-func getSliceSet(cap, m, n int) *set.SliceSet {
-	var s set.SliceSet
+func getTrends(cap, m, n int) *set.Trends {
+	var s set.Trends
 	s.OnceInit(cap)
 	for i := m; i < n; i++ {
 		s.Store(uint32(i))
@@ -203,13 +210,40 @@ func getMutexSet(cap, m, n int) *MutexSet {
 	return &s
 }
 
-func getFixedSet(cap, m, n int) *set.Option {
-	var s set.Option
+func getOpt15(cap, m, n int) *set.Option {
+	s := set.NewOption15(cap)
 	s.OnceInit(cap)
 	for i := m; i < n; i++ {
 		s.Store(uint32(i))
 	}
-	return &s
+	return s
+}
+
+func getOpt16(cap, m, n int) *set.Option {
+	s := set.NewOption16(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
+}
+
+func getOpt31(cap, m, n int) *set.Option {
+	s := set.NewOption31(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
+}
+
+func getOpt32(cap, m, n int) *set.Option {
+	s := set.NewOption32(cap)
+	s.OnceInit(cap)
+	for i := m; i < n; i++ {
+		s.Store(uint32(i))
+	}
+	return s
 }
 
 type setStruct struct {
@@ -225,9 +259,11 @@ const (
 
 func queueMap(t *testing.T, test setStruct) {
 	for _, m := range [...]Interface{
-		&set.IntSet{},
-		&set.SliceSet{},
-		&MutexSet{},
+		// &set.Static{},
+		// &set.Trends{},
+		// &MutexSet{},
+		// set.NewBase(100, 5),
+		&set.Fasten{},
 		// set.NewIntOpt(preInitSize),
 		// set.NewVarOpt(preInitSize),
 	} {
@@ -309,112 +345,10 @@ func TestRange(t *testing.T) {
 	})
 }
 
-func TestLen(t *testing.T) {
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(initCap)
-			for i := initM; i < initN; i++ {
-				s.Store(uint32(i))
-			}
-		},
-		run: func(t *testing.T, s Interface) {
-			slen := s.Len()
-			if s.Len() != initN {
-				t.Fatalf("len err:%d,need:%d", slen, initN)
-			}
-			for i := 10; i < 20; i++ {
-				s.Delete(uint32(i))
-			}
-			slen = s.Len()
-			if slen != initN-10 {
-				t.Fatalf("len err:%d,need:%d", slen, initN-10)
-			}
-		},
-	})
-}
-
-func TestClear(t *testing.T) {
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(initCap)
-			for i := initM; i < initN; i++ {
-				s.Store(uint32(i))
-			}
-		},
-		run: func(t *testing.T, s Interface) {
-			s.Clear()
-			slen := s.Len()
-			if slen != 0 {
-				t.Errorf("Clear err,%d!=0", slen)
-			}
-			s.Range(func(x uint32) bool {
-				t.Fatalf("Clear not empty:%d", x)
-				return true
-			})
-		},
-	})
-}
-
-func TestNull(t *testing.T) {
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(initCap)
-		},
-		run: func(t *testing.T, s Interface) {
-			if !s.Null() {
-				t.Fatalf("init Null err")
-			}
-			s.Store(1)
-			s.Store(2)
-			s.Store(3)
-			if s.Null() {
-				t.Fatalf("Adds not Null err")
-			}
-			s.Delete(1)
-			s.Delete(2)
-			s.Delete(3)
-			if !s.Null() {
-				t.Fatalf("Removes not Null err")
-			}
-		},
-	})
-}
-
-func TestItems(t *testing.T) {
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(initCap)
-			for i := initM; i < initN; i++ {
-				s.Store(uint32(i))
-			}
-		},
-		run: func(t *testing.T, s Interface) {
-			array := s.Items()
-			slen := s.Len()
-			if slen != len(array) {
-				t.Fatalf("items len err:%d,%d", slen, len(array))
-			}
-			var result = make(map[uint32]bool)
-			s.Range(func(x uint32) bool {
-				result[x] = true
-				return true
-			})
-			for _, v := range array {
-				result[v] = false
-			}
-			for k, v := range result {
-				if v {
-					t.Fatalf("items miss:%d", k)
-				}
-			}
-		},
-	})
-}
-
 func TestEqual(t *testing.T) {
-	iq := getIntSet(initCap, initM, initN)
-	sq := getIntSet(initCap, initM, initN)
-	mq := getIntSet(initCap, initM, initN)
+	iq := getStatic(initCap, initM, initN)
+	sq := getStatic(initCap, initM, initN)
+	mq := getStatic(initCap, initM, initN)
 	queueMap(t, setStruct{
 		setup: func(t *testing.T, s Interface) {
 			s.OnceInit(initCap)
@@ -439,205 +373,249 @@ func TestEqual(t *testing.T) {
 	})
 }
 
+type opTyp int
+
+const (
+	opTypUnion opTyp = iota
+	opTypInter
+	opTypDiffe
+	opTypComen
+)
+
+type opArgs struct {
+	cap int
+	x   int
+	y   int
+}
+
+type opResualt struct {
+	arg1 opArgs
+	arg2 opArgs
+	op   opTyp
+}
+
+type opfunc func(s, t set.Set) set.Set
+
+func (o opResualt) getFunc() opfunc {
+	switch o.op {
+	case opTypUnion:
+		return set.Union
+	case opTypInter:
+		return set.Intersect
+	case opTypDiffe:
+		return set.Difference
+	case opTypComen:
+		return set.Complement
+	}
+	return nil
+}
+
+func (o opResualt) getWant() (x, y set.Set) {
+	// keep: x1<x2<y1<y2
+	switch o.op {
+	case opTypUnion:
+		max, _ := maxmin(o.arg1.cap, o.arg2.cap)
+		x = getStatic(max, o.arg1.x, o.arg2.y)
+		y = x
+		return x, y
+	case opTypInter:
+		max, _ := maxmin(o.arg1.cap, o.arg2.cap)
+		x = getStatic(max, o.arg2.x, o.arg1.y)
+		y = x
+		return x, y
+	case opTypDiffe:
+		x = getStatic(o.arg1.cap, o.arg1.x, o.arg2.x)
+		y = getStatic(o.arg2.cap, o.arg1.y, o.arg2.y)
+		return x, y
+	case opTypComen:
+		max, _ := maxmin(o.arg1.cap, o.arg2.cap)
+		x = set.Union(getStatic(max, o.arg1.x, o.arg2.x),
+			getStatic(max, o.arg1.y, o.arg2.y))
+		y = x
+		return x, y
+	}
+	return nil, nil
+}
+
+func opMap(t *testing.T, r opResualt) {
+	type args struct {
+		name string
+		val  set.Set
+	}
+	var (
+		cap1 = r.arg1.cap
+		cap2 = r.arg1.cap
+
+		// keep: x1<x2<y1<y2
+		x1 = r.arg1.x
+		x2 = r.arg2.x
+		y1 = r.arg1.y
+		y2 = r.arg2.y
+	)
+	wantxy, wantyx := r.getWant()
+	SetFunc := r.getFunc()
+
+	arg1 := []args{
+		{
+			name: "getStatic",
+			val:  getStatic(cap1, x1, y1),
+		},
+		{
+			name: "getTrends",
+			val:  getTrends(cap1, x1, y1),
+		},
+		{
+			name: "getMutexSet",
+			val:  getMutexSet(cap1, x1, y1),
+		},
+		{
+			name: "getOpt15",
+			val:  getOpt15(cap1, x1, y1),
+		},
+		{
+			name: "getOpt16",
+			val:  getOpt16(cap1, x1, y1),
+		},
+		{
+			name: "getOpt31",
+			val:  getOpt31(cap1, x1, y1),
+		},
+		{
+			name: "getOpt32",
+			val:  getOpt32(cap1, x1, y1),
+		},
+	}
+	arg2 := []args{
+		{
+			name: "getStatic",
+			val:  getStatic(cap2, x2, y2),
+		},
+		{
+			name: "getTrends",
+			val:  getTrends(cap2, x2, y2),
+		},
+		{
+			name: "getMutexSet",
+			val:  getMutexSet(cap2, x2, y2),
+		},
+		{
+			name: "getOpt15",
+			val:  getOpt15(cap2, x2, y2),
+		},
+		{
+			name: "getOpt16",
+			val:  getOpt16(cap2, x2, y2),
+		},
+		{
+			name: "getOpt31",
+			val:  getOpt31(cap2, x2, y2),
+		},
+		{
+			name: "getOpt32",
+			val:  getOpt32(cap2, x2, y2),
+		},
+	}
+	for _, x := range arg1 {
+		for _, y := range arg2 {
+			t.Run(x.name+"+"+y.name, func(t *testing.T) {
+				if got := SetFunc(x.val, y.val); !set.Equal(got, wantxy) {
+					wantItem := set.Items(wantxy)
+					gotItem := set.Items(got)
+					i, j := 0, 0
+					for i < len(wantItem) && j < len(gotItem) {
+						if wantItem[i] != gotItem[j] {
+							t.Errorf("miss:%d ", wantItem[i])
+							i += 1
+						}
+						i += 1
+						j += 1
+					}
+					for ; i < len(wantItem); i++ {
+						t.Errorf("miss:%d ", wantItem[i])
+					}
+				}
+				if got := SetFunc(y.val, x.val); !set.Equal(got, wantyx) {
+					wantItem := set.Items(wantyx)
+					gotItem := set.Items(got)
+					i, j := 0, 0
+					for i < len(wantItem) && j < len(gotItem) {
+						if wantItem[i] != gotItem[j] {
+							t.Errorf("miss:%d ", wantItem[i])
+							i += 1
+						}
+						i += 1
+						j += 1
+					}
+					for ; i < len(wantItem); i++ {
+						t.Errorf("miss:%d ", wantItem[i])
+					}
+				}
+			})
+		}
+	}
+}
+
 func TestUnion(t *testing.T) {
-	iq := getIntSet(10, 2, 8)
-	ir := getIntSet(10, 0, 8)
-	ie := getIntSet(10, 0, 8)
-
-	sq := getSliceSet(10, 2, 8)
-	sr := getSliceSet(10, 0, 8)
-	se := getSliceSet(10, 0, 8)
-
-	mq := getMutexSet(10, 2, 8)
-	mr := getMutexSet(10, 0, 8)
-	me := getMutexSet(10, 0, 8)
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(10)
-			for i := 0; i < 5; i++ {
-				s.Store(uint32(i))
-			}
+	opMap(t, opResualt{
+		arg1: opArgs{
+			cap: 1000,
+			x:   0,
+			y:   500,
 		},
-		run: func(t *testing.T, s Interface) {
-			ip := set.Union(s, iq)
-			if !set.Equal(ip, ir) {
-				t.Errorf("union Int err:%v,%v", ir, ip)
-			}
-			io := set.Union(iq, s)
-			if !set.Equal(io, ie) {
-				t.Errorf("union Int err:%v,%v", ie, io)
-			}
-
-			sp := set.Union(s, sq)
-			if !set.Equal(sp, sr) {
-				t.Errorf("union Slice err:%v,%v", sr, sp)
-			}
-			so := set.Union(sq, s)
-			if !set.Equal(so, se) {
-				t.Errorf("union Slice err:%v,%v", se, so)
-			}
-
-			mp := set.Union(s, mq)
-			if !set.Equal(mp, mr) {
-				t.Errorf("union Mutex err:%v,%v", mr, mp)
-			}
-			mo := set.Union(mq, s)
-			if !set.Equal(mo, me) {
-				t.Errorf("union Mutex err:%v,%v", me, mo)
-			}
-
+		arg2: opArgs{
+			cap: 1000,
+			x:   200,
+			y:   800,
 		},
+		op: opTypUnion,
 	})
 }
 
 func TestIntersect(t *testing.T) {
-	iq := getIntSet(10, 2, 8)
-	ir := getIntSet(10, 2, 5)
-	ie := getIntSet(10, 2, 5)
-
-	sq := getSliceSet(10, 2, 8)
-	sr := getSliceSet(10, 2, 5)
-	se := getSliceSet(10, 2, 5)
-
-	mq := getMutexSet(10, 2, 8)
-	mr := getMutexSet(10, 2, 5)
-	me := getMutexSet(10, 2, 5)
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(10)
-			for i := 0; i < 5; i++ {
-				s.Store(uint32(i))
-			}
+	opMap(t, opResualt{
+		arg1: opArgs{
+			cap: 10000,
+			x:   0,
+			y:   5000,
 		},
-		run: func(t *testing.T, s Interface) {
-			ip := set.Intersect(s, iq)
-			if !set.Equal(ip, ir) {
-				t.Errorf("Intersect Int err:%v,%v", ip, ir)
-			}
-			io := set.Intersect(iq, s)
-			if !set.Equal(io, ie) {
-				t.Errorf("Intersect Int err:%v,%v", ie, io)
-			}
-
-			sp := set.Intersect(s, sq)
-			if !set.Equal(sp, sr) {
-				t.Errorf("Intersect Slice err:%v,%v", sp, sr)
-			}
-			so := set.Intersect(sq, s)
-			if !set.Equal(so, se) {
-				t.Errorf("Intersect Slice err:%v,%v", se, so)
-			}
-
-			mp := set.Intersect(s, mq)
-			if !set.Equal(mp, mr) {
-				t.Errorf("Intersect Mutex err:%v,%v", mp, mr)
-			}
-			mo := set.Intersect(mq, s)
-			if !set.Equal(mo, me) {
-				t.Errorf("Intersect Mutex err:%v,%v", me, mo)
-			}
+		arg2: opArgs{
+			cap: 10000,
+			x:   2000,
+			y:   8000,
 		},
+		op: opTypInter,
 	})
 }
 
 func TestDifference(t *testing.T) {
-	iq := getIntSet(10, 2, 8)
-	ir := getIntSet(10, 0, 2)
-	ie := getIntSet(10, 5, 8)
-
-	sq := getSliceSet(10, 2, 8)
-	sr := getSliceSet(10, 0, 2)
-	se := getSliceSet(10, 5, 8)
-
-	mq := getMutexSet(10, 2, 8)
-	mr := getMutexSet(10, 0, 2)
-	me := getMutexSet(10, 5, 8)
-
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(10)
-			for i := 0; i < 5; i++ {
-				s.Store(uint32(i))
-			}
+	opMap(t, opResualt{
+		arg1: opArgs{
+			cap: 10000,
+			x:   000,
+			y:   5000,
 		},
-		run: func(t *testing.T, s Interface) {
-			ip := set.Difference(s, iq)
-			if !set.Equal(ip, ir) {
-				t.Errorf("Difference Int err:%v,%v", ir, ip)
-			}
-			io := set.Difference(iq, s)
-			if !set.Equal(io, ie) {
-				t.Errorf("Difference Int err:%v,%v", ie, io)
-			}
-
-			sp := set.Difference(s, sq)
-			if !set.Equal(sp, sr) {
-				t.Errorf("Difference Slice err:%v,%v", sr, sp)
-			}
-			so := set.Difference(sq, s)
-			if !set.Equal(so, se) {
-				t.Errorf("Difference Slice err:%v,%v", se, so)
-			}
-
-			mp := set.Difference(s, mq)
-			if !set.Equal(mp, mr) {
-				t.Errorf("Difference Mutex err:%v,%v", mr, mp)
-			}
-			mo := set.Difference(mq, s)
-			if !set.Equal(mo, me) {
-				t.Errorf("Difference Mutex err:%v,%v", me, mo)
-			}
+		arg2: opArgs{
+			cap: 10000,
+			x:   2000,
+			y:   8000,
 		},
+		op: opTypDiffe,
 	})
 }
 
 func TestComplement(t *testing.T) {
-	iq := getIntSet(10, 2, 8)
-	ir := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
-	ie := set.Union(getIntSet(10, 0, 2), getIntSet(10, 5, 8))
-
-	sq := getSliceSet(10, 2, 8)
-	sr := set.Union(getSliceSet(10, 0, 2), getSliceSet(10, 5, 8))
-	se := set.Union(getSliceSet(10, 0, 2), getSliceSet(10, 5, 8))
-
-	mq := getMutexSet(10, 2, 8)
-	mr := set.Union(getMutexSet(10, 0, 2), getMutexSet(10, 5, 8))
-	me := set.Union(getMutexSet(10, 0, 2), getMutexSet(10, 5, 8))
-	queueMap(t, setStruct{
-		setup: func(t *testing.T, s Interface) {
-			s.OnceInit(10)
-			for i := 0; i < 5; i++ {
-				s.Store(uint32(i))
-			}
+	opMap(t, opResualt{
+		arg1: opArgs{
+			cap: 10000,
+			x:   0,
+			y:   5000,
 		},
-		run: func(t *testing.T, s Interface) {
-			ip := set.Complement(s, iq)
-			if !set.Equal(ip, ir) {
-				t.Errorf("Complement Int err:%v,%v", ir, ip)
-			}
-			io := set.Complement(iq, s)
-			if !set.Equal(io, ie) {
-				t.Errorf("Complement Int err:%v,%v", ie, io)
-			}
-
-			sp := set.Complement(s, sq)
-			if !set.Equal(sp, sr) {
-				t.Errorf("Complement Slice err:%v,%v", sr, sp)
-			}
-			so := set.Complement(sq, s)
-			if !set.Equal(so, se) {
-				t.Errorf("Complement Slice err:%v,%v", se, so)
-			}
-
-			mp := set.Complement(s, mq)
-			if !set.Equal(mp, mr) {
-				t.Errorf("Complement Mutex err:%v,%v", mr, mp)
-			}
-			mo := set.Complement(mq, s)
-			if !set.Equal(mo, me) {
-				t.Errorf("Complement Mutex err:%v,%v", me, mo)
-			}
+		arg2: opArgs{
+			cap: 10000,
+			x:   2000,
+			y:   8000,
 		},
+		op: opTypComen,
 	})
 }
 
@@ -648,10 +626,6 @@ var raceOps = [...]setOp{
 	opLoadOrStore,
 	opLoadAndDelete,
 	opRange,
-	opLen,
-	opClear,
-	opNull,
-	opItems,
 }
 
 func (c setCall) raceCall(s Interface) {
@@ -668,14 +642,6 @@ func (c setCall) raceCall(s Interface) {
 		s.LoadAndDelete(c.k)
 	case opRange:
 		s.Range(func(x uint32) bool { return true })
-	case opLen:
-		s.Len()
-	case opClear:
-		s.Clear()
-	case opNull:
-		s.Null()
-	case opItems:
-		s.Items()
 	default:
 		panic("invalid mapOp:" + c.op)
 	}
@@ -854,89 +820,21 @@ func TestConcurrentRace(t *testing.T) {
 	})
 }
 
-func Test_uint31To32(t *testing.T) {
-	ulen := 100
-	u31 := make([]uint32, ulen)
-	u32 := make([]uint32, ulen)
-	for i := 0; i < ulen; i++ {
-		u31[i] |= 1<<31 - 1
-		u32[i] |= 1<<31 - 1 | 1<<31
-	}
-	ls := ulen*31/32 + 1
-	lm := ulen * 31 % 32
-	u32 = u32[:ls]
-	u32[ls-1] &= (1<<lm - 1)
-	for i := ls; i < len(u32); i++ {
-		u32[i] = 0
-	}
-
-	type args struct {
-		u31  []uint32
-		ulen int
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantU32 []uint32
-	}{
-		// TODO: Add test cases.
-		{
-			name: "",
-			args: args{
-				u31:  u31,
-				ulen: ulen,
-			},
-			wantU32: u32,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if gotU32 := uint31To32(tt.args.u31, tt.args.ulen); !reflect.DeepEqual(gotU32, tt.wantU32) {
-				for i := 0; i < len(gotU32); i++ {
-					if gotU32[i] != tt.wantU32[i] {
-						t.Errorf("uint31To32() = %v, want %v\n", gotU32[i], tt.wantU32[i])
-					}
-				}
-			}
-		})
-	}
-}
-
-func uint31To32(u31 []uint32, ulen int) (u32 []uint32) {
-	u32 = make([]uint32, ulen)
-	mlen := ulen*31/32 + 1
-	for i := 0; i < ulen; i++ {
-		item := u31[i]
-		ni := (i + 1) * 31 / 32
-		bit := i % 32 //有效补偿位
-
-		u32[ni] |= (item &^ (1<<bit - 1)) >> bit
-
-		if i%32 != 0 {
-			// 补偿
-			bv := item & (1<<bit - 1)
-			bv <<= 31 - ((i - 1) % 32)
-			u32[i-(i/32+1)] |= bv
-		}
-	}
-	return u32[:mlen]
-}
-
-func TestSliceToInt(t *testing.T) {
+func TestToStatic(t *testing.T) {
 	cap := 1000
-	var s set.SliceSet
+	var s set.Trends
 	s.OnceInit(cap)
 	for i := 0; i < cap; i++ {
 		s.Store(uint32(i))
 	}
-	r := s.Copy()
+	r := set.Copy(&s)
 	type args struct {
-		s *set.SliceSet
+		s *set.Trends
 	}
 	tests := []struct {
 		name string
 		args args
-		want *set.IntSet
+		want *set.Static
 	}{
 		// TODO: Add test cases.
 		{
@@ -948,7 +846,7 @@ func TestSliceToInt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := set.SliceToInt(tt.args.s); !set.Equal(got, r) {
+			if got := set.ToStatic(tt.args.s); !set.Equal(got, r) {
 				// t.Errorf("SliceToInt() = %v, want %v", got, r)
 				var i uint32 = 0
 				got.Range(func(x uint32) bool {
@@ -963,21 +861,21 @@ func TestSliceToInt(t *testing.T) {
 	}
 }
 
-func TestIntToSlice(t *testing.T) {
-	cap := 1000
-	var s set.IntSet
+func TestToTrends(t *testing.T) {
+	cap := 100000
+	var s set.Static
 	s.OnceInit(cap)
 	for i := 0; i < cap; i++ {
 		s.Store(uint32(i))
 	}
-	r := s.Copy()
+	r := set.Copy(&s)
 	type args struct {
-		s *set.IntSet
+		s *set.Static
 	}
 	tests := []struct {
 		name string
 		args args
-		want *set.SliceSet
+		want *set.Trends
 	}{
 		// TODO: Add test cases.
 		{
@@ -989,7 +887,7 @@ func TestIntToSlice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := set.IntToSlice(tt.args.s); !set.Equal(got, r) {
+			if got := set.ToTrends(tt.args.s); !set.Equal(got, r) {
 				// t.Errorf("SliceToInt() = %v, want %v", got, r)
 				var i uint32 = 0
 				got.Range(func(x uint32) bool {
@@ -1002,4 +900,144 @@ func TestIntToSlice(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCopy(t *testing.T) {
+	cap := 10000
+	arg := make([]uint32, cap)
+	for i := 0; i < cap; i++ {
+		arg[i] = uint32(i)
+	}
+	type args struct {
+		s set.Set
+	}
+	tests := []struct {
+		name string
+		args args
+		want set.Set
+	}{
+		// TODO: Add test cases.
+		{
+			name: "NewStatic",
+			args: args{
+				s: set.NewStatic(cap, arg...),
+			},
+			want: set.NewStatic(cap, arg...),
+		},
+		{
+			name: "NewTrends",
+			args: args{
+				s: set.NewTrends(cap, arg...),
+			},
+			want: set.NewTrends(cap, arg...),
+		},
+		{
+			name: "NewOpt16S",
+			args: args{
+				s: set.NewOption16(cap, arg...),
+			},
+			want: set.NewOption16(cap, arg...),
+		},
+		{
+			name: "NewOpt16T",
+			args: args{
+				s: set.NewOption15(cap, arg...),
+			},
+			want: set.NewOption15(cap, arg...),
+		},
+		{
+			name: "NewOpt31",
+			args: args{
+				s: set.NewOption31(cap, arg...),
+			},
+			want: set.NewOption31(cap, arg...),
+		},
+		{
+			name: "NewOpt32",
+			args: args{
+				s: set.NewOption32(cap, arg...),
+			},
+			want: set.NewOption32(cap, arg...),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := set.Copy(tt.args.s); !set.Equal(got, tt.want) {
+				t.Errorf("Copy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getMsg(t *testing.T) {
+	s := set.New(10, 0, 1, 2, 3, 4)
+	a := set.New(30, 2, 3, 4, 5, 6, 7)
+	type args struct {
+		s set.Set
+		t set.Set
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantAs   []uint32
+		wantAt   []uint32
+		wantCmax int
+		wantCmin int
+	}{
+		// TODO: Add test cases.
+		{
+			name: "",
+			args: args{
+				s: s,
+				t: a,
+			},
+			wantAs:   []uint32{0, 1, 2, 3, 4},
+			wantAt:   []uint32{2, 3, 4, 5, 6, 7},
+			wantCmax: 7,
+			wantCmin: 4,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotAs, gotAt, gotCmax, gotCmin := getMsg(tt.args.s, tt.args.t)
+			if !reflect.DeepEqual(gotAs, tt.wantAs) {
+				t.Errorf("getMsg() gotAs = %v, want %v", gotAs, tt.wantAs)
+			}
+			if !reflect.DeepEqual(gotAt, tt.wantAt) {
+				t.Errorf("getMsg() gotAt = %v, want %v", gotAt, tt.wantAt)
+			}
+			if gotCmax != tt.wantCmax {
+				t.Errorf("getMsg() gotCmax = %v, want %v", gotCmax, tt.wantCmax)
+			}
+			if gotCmin != tt.wantCmin {
+				t.Errorf("getMsg() gotCmin = %v, want %v", gotCmin, tt.wantCmin)
+			}
+		})
+	}
+}
+
+func getMsg(s, t set.Set) (as, at []uint32, cmax, cmin int) {
+	as = make([]uint32, 0, initSize)
+	at = make([]uint32, 0, initSize)
+	sm := uint32(0)
+	s.Range(func(x uint32) bool {
+		as = append(as, x)
+		sm = x
+		return true
+	})
+	tm := uint32(0)
+	t.Range(func(x uint32) bool {
+		at = append(at, x)
+		tm = x
+		return true
+	})
+	cmax, cmin = maxmin(int(sm), int(tm))
+	return as, at, cmax, cmin
+}
+
+func maxmin(x, y int) (max, min int) {
+	if x > y {
+		return x, y
+	}
+	return y, x
 }
