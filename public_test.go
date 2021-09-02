@@ -120,22 +120,22 @@ func opArgsTest(t *testing.T, r opArgs, f opTestFunc) {
 			val:  getTrends(cap1, x1, y1),
 		},
 
-		{
-			name: "getOpt15",
-			val:  getOpt15(cap1, x1, y1),
-		},
-		{
-			name: "getOpt16",
-			val:  getOpt16(cap1, x1, y1),
-		},
-		{
-			name: "getOpt31",
-			val:  getOpt31(cap1, x1, y1),
-		},
-		{
-			name: "getOpt32",
-			val:  getOpt32(cap1, x1, y1),
-		},
+		// {
+		// 	name: "getOpt15",
+		// 	val:  getOpt15(cap1, x1, y1),
+		// },
+		// {
+		// 	name: "getOpt16",
+		// 	val:  getOpt16(cap1, x1, y1),
+		// },
+		// {
+		// 	name: "getOpt31",
+		// 	val:  getOpt31(cap1, x1, y1),
+		// },
+		// {
+		// 	name: "getOpt32",
+		// 	val:  getOpt32(cap1, x1, y1),
+		// },
 		{
 			name: "getMutexSet",
 			val:  getMutexSet(cap1, x1, y1),
@@ -151,22 +151,22 @@ func opArgsTest(t *testing.T, r opArgs, f opTestFunc) {
 			val:  getTrends(cap2, x2, y2),
 		},
 
-		{
-			name: "getOpt15",
-			val:  getOpt15(cap2, x2, y2),
-		},
-		{
-			name: "getOpt16",
-			val:  getOpt16(cap2, x2, y2),
-		},
-		{
-			name: "getOpt31",
-			val:  getOpt31(cap2, x2, y2),
-		},
-		{
-			name: "getOpt32",
-			val:  getOpt32(cap2, x2, y2),
-		},
+		// {
+		// 	name: "getOpt15",
+		// 	val:  getOpt15(cap2, x2, y2),
+		// },
+		// {
+		// 	name: "getOpt16",
+		// 	val:  getOpt16(cap2, x2, y2),
+		// },
+		// {
+		// 	name: "getOpt31",
+		// 	val:  getOpt31(cap2, x2, y2),
+		// },
+		// {
+		// 	name: "getOpt32",
+		// 	val:  getOpt32(cap2, x2, y2),
+		// },
 		{
 			name: "getMutexSet",
 			val:  getMutexSet(cap2, x2, y2),
@@ -329,38 +329,38 @@ func TestCopy(t *testing.T) {
 		{
 			name: "NewTrends",
 			args: args{
-				s: set.NewTrends(cap, arg...),
+				s: set.NewDynamic(cap, arg...),
 			},
-			want: set.NewTrends(cap, arg...),
+			want: set.NewDynamic(cap, arg...),
 		},
-		{
-			name: "NewOpt16S",
-			args: args{
-				s: set.NewOption16(cap, arg...),
-			},
-			want: set.NewOption16(cap, arg...),
-		},
-		{
-			name: "NewOpt16T",
-			args: args{
-				s: set.NewOption15(cap, arg...),
-			},
-			want: set.NewOption15(cap, arg...),
-		},
-		{
-			name: "NewOpt31",
-			args: args{
-				s: set.NewOption31(cap, arg...),
-			},
-			want: set.NewOption31(cap, arg...),
-		},
-		{
-			name: "NewOpt32",
-			args: args{
-				s: set.NewOption32(cap, arg...),
-			},
-			want: set.NewOption32(cap, arg...),
-		},
+		// {
+		// 	name: "NewOpt16S",
+		// 	args: args{
+		// 		s: set.NewOption16(cap, arg...),
+		// 	},
+		// 	want: set.NewOption16(cap, arg...),
+		// },
+		// {
+		// 	name: "NewOpt16T",
+		// 	args: args{
+		// 		s: set.NewOption15(cap, arg...),
+		// 	},
+		// 	want: set.NewOption15(cap, arg...),
+		// },
+		// {
+		// 	name: "NewOpt31",
+		// 	args: args{
+		// 		s: set.NewOption31(cap, arg...),
+		// 	},
+		// 	want: set.NewOption31(cap, arg...),
+		// },
+		// {
+		// 	name: "NewOpt32",
+		// 	args: args{
+		// 		s: set.NewOption32(cap, arg...),
+		// 	},
+		// 	want: set.NewOption32(cap, arg...),
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -374,14 +374,14 @@ func TestCopy(t *testing.T) {
 
 func TestToStatic(t *testing.T) {
 	cap := 100
-	var s set.Trends
+	var s set.Dynamic
 	s.OnceInit(cap)
 	for i := 0; i < cap; i++ {
 		s.Store(uint32(i))
 	}
 	r := set.Copy(&s)
 	type args struct {
-		s *set.Trends
+		s *set.Dynamic
 	}
 	tests := []struct {
 		name string
@@ -427,7 +427,7 @@ func TestToTrends(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *set.Trends
+		want *set.Dynamic
 	}{
 		// TODO: Add test cases.
 		{
@@ -511,13 +511,13 @@ func TestItems(t *testing.T) {
 		want []uint32
 	}{
 		// TODO: Add test cases.
-		{
-			name: "getOpt15",
-			args: args{
-				s: getOpt15(10, 0, 10),
-			},
-			want: []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-		},
+		// {
+		// 	name: "getOpt15",
+		// 	args: args{
+		// 		s: getOpt15(10, 0, 10),
+		// 	},
+		// 	want: []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+		// },
 		{
 			name: "getStatic",
 			args: args{
@@ -580,20 +580,20 @@ func TestNull(t *testing.T) {
 			},
 			want: false,
 		},
-		{
-			name: "null",
-			args: args{
-				s: getOpt15(100, 0, 0),
-			},
-			want: true,
-		},
-		{
-			name: "not null",
-			args: args{
-				s: getOpt16(100, 0, 10),
-			},
-			want: false,
-		},
+		// {
+		// 	name: "null",
+		// 	args: args{
+		// 		s: getOpt15(100, 0, 0),
+		// 	},
+		// 	want: true,
+		// },
+		// {
+		// 	name: "not null",
+		// 	args: args{
+		// 		s: getOpt16(100, 0, 10),
+		// 	},
+		// 	want: false,
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -642,27 +642,27 @@ func TestSize(t *testing.T) {
 			},
 			want: 0,
 		},
-		{
-			name: "getOpt15",
-			args: args{
-				s: getOpt15(100, 50, 100),
-			},
-			want: 50,
-		},
-		{
-			name: "getOpt16",
-			args: args{
-				s: getOpt16(100, 50, 100),
-			},
-			want: 50,
-		},
-		{
-			name: "getOpt16",
-			args: args{
-				s: set.Union(getOpt16(100, 50, 100), getOpt32(100, 0, 50)),
-			},
-			want: 100,
-		},
+		// {
+		// 	name: "getOpt15",
+		// 	args: args{
+		// 		s: getOpt15(100, 50, 100),
+		// 	},
+		// 	want: 50,
+		// },
+		// {
+		// 	name: "getOpt16",
+		// 	args: args{
+		// 		s: getOpt16(100, 50, 100),
+		// 	},
+		// 	want: 50,
+		// },
+		// {
+		// 	name: "getOpt16",
+		// 	args: args{
+		// 		s: set.Union(getOpt16(100, 50, 100), getOpt32(100, 0, 50)),
+		// 	},
+		// 	want: 100,
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -682,12 +682,12 @@ func TestClear(t *testing.T) {
 		args args
 	}{
 		// TODO: Add test cases.
-		{
-			name: "getOpt15",
-			args: args{
-				s: getOpt15(100, 10, 20),
-			},
-		},
+		// {
+		// 	name: "getOpt15",
+		// 	args: args{
+		// 		s: getOpt15(100, 10, 20),
+		// 	},
+		// },
 		{
 			name: "getStatic",
 			args: args{

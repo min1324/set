@@ -92,29 +92,29 @@ func applyMutex(calls []setCall) ([]setResult, map[interface{}]interface{}) {
 	return applyCalls(new(MutexSet), calls)
 }
 
-func applyOpt32(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.NewOption32(int(maximum)), calls)
-}
+// func applyOpt32(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewOption32(int(maximum)), calls)
+// }
 
-func applyOpt31(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.NewOption31(int(maximum)), calls)
-}
+// func applyOpt31(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewOption31(int(maximum)), calls)
+// }
 
-func applyOpt16(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.NewOption16(int(maximum)), calls)
-}
+// func applyOpt16(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewOption16(int(maximum)), calls)
+// }
 
-func applyOpt15(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.NewOption15(int(maximum)), calls)
-}
+// func applyOpt15(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewOption15(int(maximum)), calls)
+// }
 
 // func applyBase(calls []setCall) ([]setResult, map[interface{}]interface{}) {
 // 	return applyCalls(set.NewBase(int(maximum)), calls)
 // }
 
-func applyFasten(calls []setCall) ([]setResult, map[interface{}]interface{}) {
-	return applyCalls(set.NewDynamic(int(maximum)), calls)
-}
+// func applyFasten(calls []setCall) ([]setResult, map[interface{}]interface{}) {
+// 	return applyCalls(set.NewDynamic(int(maximum)), calls)
+// }
 
 func applyMap(t *testing.T, standard applyFunc) {
 	for _, m := range [...]applyFunc{
@@ -159,29 +159,29 @@ func TestTrends(t *testing.T) {
 	applyMap(t, applyTrends)
 }
 
-func TestOpt32(t *testing.T) {
-	applyMap(t, applyOpt32)
-}
+// func TestOpt32(t *testing.T) {
+// 	applyMap(t, applyOpt32)
+// }
 
 // func TestBase(t *testing.T) {
 // 	applyMap(t, applyBase)
 // }
 
-func TestFasten(t *testing.T) {
-	applyMap(t, applyFasten)
-}
+// func TestFasten(t *testing.T) {
+// 	applyMap(t, applyFasten)
+// }
 
-func TestOpt31(t *testing.T) {
-	applyMap(t, applyOpt31)
-}
+// func TestOpt31(t *testing.T) {
+// 	applyMap(t, applyOpt31)
+// }
 
-func TestOpt16(t *testing.T) {
-	applyMap(t, applyOpt16)
-}
+// func TestOpt16(t *testing.T) {
+// 	applyMap(t, applyOpt16)
+// }
 
-func TestOpt15(t *testing.T) {
-	applyMap(t, applyOpt15)
-}
+// func TestOpt15(t *testing.T) {
+// 	applyMap(t, applyOpt15)
+// }
 
 func TestTrendsGrow(t *testing.T) {
 	src := getTrends(0, 0, 5000)
@@ -204,11 +204,11 @@ const (
 
 func queueMap(t *testing.T, test setStruct) {
 	for _, m := range [...]Interface{
-		// &set.Static{},
+		&set.Static{},
 		// &set.Trends{},
 		// &MutexSet{},
 		// set.NewBase(100, 5),
-		&set.Dynamic{},
+		// &set.Dynamic{},
 		// set.NewIntOpt(preInitSize),
 		// set.NewVarOpt(preInitSize),
 	} {

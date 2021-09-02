@@ -6,8 +6,8 @@ import (
 	"github.com/min1324/set"
 )
 
-func ExampleTrends_initSet() {
-	s := new(set.Trends)
+func ExampleDynamic_initSet() {
+	s := new(set.Dynamic)
 	set.Adds(s, 10000)
 	s.Range(func(x uint32) bool {
 		fmt.Printf("%d ", x)
@@ -18,7 +18,7 @@ func ExampleTrends_initSet() {
 }
 
 func ExampleInit() {
-	var s set.Trends
+	var s set.Dynamic
 	load, ok := s.LoadOrStore(0)
 	if !ok {
 		fmt.Println("!ok")
@@ -47,8 +47,8 @@ func ExampleStatic_range() {
 	// 0 1 7 31 32 63 64 91 92 99 100
 }
 
-func ExampleTrends_range() {
-	s := set.NewTrends(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
+func ExampleDynamic_range() {
+	s := set.NewDynamic(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
 	s.Store(7)
 	s.Delete(2)
 	fmt.Println(s)
@@ -61,22 +61,23 @@ func ExampleTrends_range() {
 	// 0 1 7 31 32 63 64 91 92 99 100
 }
 
-func ExampleOption_range() {
-	s := set.NewOption32(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
-	s.Store(7)
-	s.Delete(2)
-	fmt.Println(s)
-	s.Range(func(x uint32) bool {
-		fmt.Printf("%d ", x)
-		return true
-	})
-	// Output:
-	// {0 1 7 31 32 63 64 91 92 99 100}
-	// 0 1 7 31 32 63 64 91 92 99 100
-}
+// func ExampleOption_range() {
+// 	s := set.NewOption32(100, 0, 1, 2, 31, 32, 63, 64, 91, 92, 99, 100, 101, 131)
+// 	s.Store(7)
+// 	s.Delete(2)
+// 	fmt.Println(s)
+// 	s.Range(func(x uint32) bool {
+// 		fmt.Printf("%d ", x)
+// 		return true
+// 	})
+// 	// Output:
+// 	// {0 1 7 31 32 63 64 91 92 99 100}
+// 	// 0 1 7 31 32 63 64 91 92 99 100
+// }
+
 func ExampleUnion() {
-	s := set.NewTrends(36, 0, 1, 2, 3, 4, 5)
-	p := set.NewTrends(100, 4, 5, 6, 7, 8)
+	s := set.NewDynamic(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewDynamic(100, 4, 5, 6, 7, 8)
 	u := set.Union(s, p)
 	fmt.Println(u)
 
@@ -89,8 +90,8 @@ func ExampleUnion() {
 }
 
 func ExampleIntersect() {
-	s := set.NewTrends(36, 0, 1, 2, 3, 4, 5)
-	p := set.NewTrends(100, 4, 5, 6, 7, 8)
+	s := set.NewDynamic(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewDynamic(100, 4, 5, 6, 7, 8)
 	u := set.Intersect(s, p)
 	fmt.Println(u)
 
@@ -103,12 +104,12 @@ func ExampleIntersect() {
 }
 
 func ExampleDifference() {
-	s := set.NewTrends(36, 0, 1, 2, 3, 4, 5)
-	p := set.NewTrends(100, 4, 5, 6, 7, 8)
+	s := set.NewDynamic(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewDynamic(100, 4, 5, 6, 7, 8)
 	u := set.Difference(s, p)
 	fmt.Println(u)
 
-	m := set.NewTrends(100, 4, 5, 6, 7, 8)
+	m := set.NewDynamic(100, 4, 5, 6, 7, 8)
 	n := set.Difference(s, m)
 	fmt.Println(n)
 	// Output:
@@ -117,8 +118,8 @@ func ExampleDifference() {
 }
 
 func ExampleComplement() {
-	s := set.NewTrends(36, 0, 1, 2, 3, 4, 5)
-	p := set.NewTrends(100, 4, 5, 6, 7, 8)
+	s := set.NewDynamic(36, 0, 1, 2, 3, 4, 5)
+	p := set.NewDynamic(100, 4, 5, 6, 7, 8)
 	u := set.Complement(s, p)
 	fmt.Println(u)
 
