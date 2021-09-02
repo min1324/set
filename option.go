@@ -61,11 +61,12 @@ func (s *Option) init32(max int) { s.init(max, optEntry32) }
 
 func (s *Option) init(max int, typ optEntryTyp) {
 	s.once.Do(func() {
+		e := newOptEntry(uint32(max), typ)
+		atomic.StorePointer(&s.node, unsafe.Pointer(e))
+
 		if max > int(maximum) || max < 1 {
 			max = int(maximum)
 		}
-		e := newOptEntry(uint32(max), typ)
-		atomic.StorePointer(&s.node, unsafe.Pointer(e))
 		atomic.StoreUint32(&s.max, uint32(max))
 	})
 }
@@ -83,6 +84,7 @@ func (s *Option) OnceInit(max int) {
 }
 
 func (s *Option) getMax() uint32        { return atomic.LoadUint32(&s.max) }
+func (s *Option) getCap() uint32        { return s.getEntry().getCap() }
 func (s *Option) getLen() uint32        { return s.getEntry().getLen() }
 func (s *Option) load(i int) uint32     { return s.getEntry().load(i) }
 func (s *Option) store(i int, x uint32) { s.getEntry().store(i, x) }
@@ -128,8 +130,7 @@ func (s *Option) Store(x uint32) bool {
 func (s *Option) LoadOrStore(x uint32) (loaded, ok bool) {
 	s.OnceInit(0)
 	if x > s.getMax() {
-		// overflow
-		return false, false
+		return
 	}
 	for {
 		e := s.getEntry()
@@ -139,6 +140,7 @@ func (s *Option) LoadOrStore(x uint32) (loaded, ok bool) {
 			if ok {
 				return loaded, true
 			}
+
 		}
 		if e.growWork == nil {
 			// not need grow
@@ -194,10 +196,11 @@ func (s *Option) Range(f func(x uint32) bool) {
 type optEntryTyp int
 
 const (
-	optEntry32 optEntryTyp = iota
-	optEntry31
-	optEntry16
+	_ optEntryTyp = iota
 	optEntry15
+	optEntry16
+	optEntry31
+	optEntry32
 )
 
 type entry struct {
@@ -439,34 +442,22 @@ func optGrowWork(s *Option, old *entry, cap uint32) bool {
 	}
 	// caculate new cap
 	newCap := caculateCap(old.getCap(), cap)
+	max := newCap * atomic.LoadUint32(&old.bit)
 
-	// new node
-	nn := &entry{
-		idxMod:   old.idxMod,
-		growWork: old.growWork,
-		frozen:   old.frozen,
-		typ:      old.typ,
-		bit:      atomic.LoadUint32(&old.bit),
-		len:      cap,
-		cap:      newCap,
-		data:     make([]uint32, newCap),
-	}
-	// evacute old node to new node
-	for i := 0; i < int(old.getCap()); i++ {
-		// mask the height bit to freezeBit
-		item := atomic.AddUint32(&old.data[i], freezeBit)
-		nn.store(i, item&^freezeBit)
-	}
-	nn.walk(func(x uint32) bool {
-		nn.count += 1
-		return true
-	})
-	ok := atomic.CompareAndSwapPointer(&s.node, unsafe.Pointer(old), unsafe.Pointer(nn))
-	if !ok {
-		panic("BUG: failed swapping head")
-	}
-	return true
+	return optEvacute(s, old, old.typ, max)
 }
+
+// ToStatic convert option's entry to entry32
+func (s *Option) ToStatic() { optConvert(s, optEntry32) }
+
+// ToStatic convert option's entry to entry31
+func (s *Option) ToTrends() { optConvert(s, optEntry31) }
+
+// ToStatic convert option's entry to entry16
+func (s *Option) ToStatic16() { optConvert(s, optEntry16) }
+
+// ToStatic convert option's entry to entry15
+func (s *Option) ToTrends16() { optConvert(s, optEntry15) }
 
 func optConvert(s *Option, typ optEntryTyp) bool {
 	if s.getEntry().typ == typ {
@@ -483,27 +474,7 @@ func optConvert(s *Option, typ optEntryTyp) bool {
 
 	// caculate new cap
 	max := s.getMax()
-
-	// new node
-	nn := newOptEntry(max, typ)
-	if nn == nil {
-		return false
-	}
-
-	for i := 0; i < int(old.getCap()); i++ {
-		old.freeze(i)
-	}
-
-	optEvacute(old, nn, max)
-	nn.walk(func(x uint32) bool {
-		nn.count += 1
-		return true
-	})
-	ok := atomic.CompareAndSwapPointer(&s.node, unsafe.Pointer(old), unsafe.Pointer(nn))
-	if !ok {
-		panic("BUG: failed swapping head")
-	}
-	return ok
+	return optEvacute(s, old, typ, max)
 }
 
 func (e *entry) freeze(idx int) uint32 {
@@ -515,116 +486,140 @@ func (e *entry) freeze(idx int) uint32 {
 	}
 }
 
-// ToStatic convert option's entry to entry32
-func (s *Option) ToStatic() { optConvert(s, optEntry32) }
-
-// ToStatic convert option's entry to entry31
-func (s *Option) ToTrends() { optConvert(s, optEntry31) }
-
-// ToStatic convert option's entry to entry16
-func (s *Option) ToStatic16() { optConvert(s, optEntry16) }
-
-// ToStatic convert option's entry to entry15
-func (s *Option) ToTrends16() { optConvert(s, optEntry15) }
-
-// optEvacute old entry to new according bit
-func optEvacute(old, new *entry, max uint32) {
-	oldBit := atomic.LoadUint32(&old.bit)
-	newBit := atomic.LoadUint32(&new.bit)
-	switch oldBit {
-	case 16:
-		if newBit == 31 {
-			p := newOptEntry32(max)
-			u16To32(old, p)
-			u32To31(p, new)
-		} else {
-			u16To32(old, new)
-		}
-	case 31:
-		if newBit == 16 {
-			p := newOptEntry32(max)
-			u31To32(old, p)
-			u32To16(p, new)
-		} else {
-			u31To32(old, new)
-		}
-	case 32:
-		if newBit == 16 {
-			u32To16(old, new)
-		} else {
-			u32To31(old, new)
-		}
-	}
-	// TODO add other bit
-}
-
-func u32To16(old, new *entry) {
-	ocap := old.getCap()
-	for i := 0; i < int(ocap); i++ {
-		item := old.load(i)
-		if item == 0 {
-			continue
-		}
-		new.store(2*i, item&(1<<16-1))
-		new.store(2*i+1, item>>16)
+func optEvacuteEntry(old, new *entry, max uint32) {
+	// evacute old to new
+	r := addTyp(old.typ, new.typ)
+	if f, ok := optConvertCB[r]; ok {
+		f(old, new, max)
+	} else {
+		panic("Option: Unknown entry typ")
 	}
 }
 
-func u16To32(old, new *entry) {
-	ocap := old.getCap()
-	for i := 0; i < int(ocap); i++ {
-		item := old.load(i)
-		item &^= freezeBit
-		if item == 0 {
-			continue
-		}
-		new.store(i>>1, new.load(i>>1)|item<<(16*(i&1)))
+// optEvacute old entry to new according typ
+func optEvacute(s *Option, old *entry, newtyp optEntryTyp, max uint32) bool {
+	// new entry
+	nn := newOptEntry(max, newtyp)
+
+	// evacute old to new
+	optEvacuteEntry(old, nn, max)
+
+	// update count
+	nn.walk(func(x uint32) bool {
+		nn.count += 1
+		return true
+	})
+
+	// store
+	ok := atomic.CompareAndSwapPointer(&s.node, unsafe.Pointer(old), unsafe.Pointer(nn))
+	if !ok {
+		panic("BUG: failed swapping head")
+	}
+	return ok
+}
+
+const (
+	optBit    = 10
+	opt15To15 = optEntry15<<optBit | optEntry15
+	opt15To16 = optEntry15<<optBit | optEntry16
+	opt15To31 = optEntry15<<optBit | optEntry31
+	opt15To32 = optEntry15<<optBit | optEntry32
+
+	opt16To15 = optEntry16<<optBit | optEntry15
+	opt16To16 = optEntry16<<optBit | optEntry16
+	opt16To31 = optEntry16<<optBit | optEntry31
+	opt16To32 = optEntry16<<optBit | optEntry32
+
+	opt31To15 = optEntry31<<optBit | optEntry15
+	opt31To16 = optEntry31<<optBit | optEntry16
+	opt31To31 = optEntry31<<optBit | optEntry31
+	opt31To32 = optEntry31<<optBit | optEntry32
+
+	opt32To15 = optEntry32<<optBit | optEntry15
+	opt32To16 = optEntry32<<optBit | optEntry16
+	opt32To31 = optEntry32<<optBit | optEntry31
+	opt32To32 = optEntry32<<optBit | optEntry32
+)
+
+func addTyp(s, t optEntryTyp) optEntryTyp {
+	return s<<optBit | t
+}
+
+type optConvFunc func(old, new *entry, max uint32)
+
+var optConvertCB map[optEntryTyp]optConvFunc = map[optEntryTyp]optConvFunc{
+	opt15To15: func(old, new *entry, max uint32) {
+		optSameUnFreeze(old, new)
+	},
+	opt15To16: func(old, new *entry, max uint32) {
+		optSameUnFreeze(old, new)
+	},
+	opt15To31: func(old, new *entry, max uint32) {
+		p := newOptEntry32(max)
+		u16To32(old, p)
+		u32To31(p, new)
+	},
+	opt15To32: func(old, new *entry, max uint32) {
+		u16To32(old, new)
+	},
+
+	opt16To15: func(old, new *entry, max uint32) {
+		optSameUnFreeze(old, new)
+	},
+	opt16To16: func(old, new *entry, max uint32) {
+		optSameUnFreeze(old, new)
+	},
+	opt16To31: func(old, new *entry, max uint32) {
+		p := newOptEntry32(max)
+		u16To32(old, p)
+		u32To31(p, new)
+	},
+	opt16To32: func(old, new *entry, max uint32) {
+		u16To32(old, new)
+	},
+
+	opt32To15: func(old, new *entry, max uint32) {
+		u32To16(old, new)
+	},
+	opt32To16: func(old, new *entry, max uint32) {
+		u32To16(old, new)
+	},
+	opt32To31: func(old, new *entry, max uint32) {
+		u32To31(old, new)
+	},
+	opt32To32: func(old, new *entry, max uint32) {
+		optSameTyp(old, new)
+	},
+
+	opt31To15: func(old, new *entry, max uint32) {
+		p := newOptEntry32(max)
+		u31To32(old, p)
+		u32To16(p, new)
+	},
+	opt31To16: func(old, new *entry, max uint32) {
+		p := newOptEntry32(max)
+		u31To32(old, p)
+		u32To16(p, new)
+	},
+	opt31To31: func(old, new *entry, max uint32) {
+		optSameUnFreeze(old, new)
+	},
+	opt31To32: func(old, new *entry, max uint32) {
+		u31To32(old, new)
+	},
+}
+
+func optSameTyp(old, new *entry) {
+	olen := int(old.getLen())
+	for i := 0; i < olen; i++ {
+		new.store(i, atomic.LoadUint32(&old.data[i]))
 	}
 }
 
-func u32To31(old, new *entry) {
-	slen := int(old.getLen())
-	ncap := int(new.getCap())
-	for i := 0; i < slen; i++ {
-		item := old.load(i)
-		// u32 实际存位值
-		ni := i + i/31
-		//有效补偿位
-		bit := i % 31
-		ivalue := item << bit
-		// 去掉bit最高位
-		ivalue &^= freezeBit
-		new.store(ni, new.load(ni)|ivalue)
-
-		if ni+1 < ncap {
-			// 补偿i+(i/31+1)
-			bv := item >> (31 - bit)
-			new.store(ni+1, new.load(ni+1)|bv)
-		}
-	}
-}
-
-func u31To32(old, new *entry) {
-	slen := int(old.getLen())
-	for i := 0; i < slen; i++ {
-		item := old.load(i)
-		// 去掉最高位
-		item &^= freezeBit
-		// u32 实际存位值
-		ni := (i + 1) * 31 / 32
-		//有效补偿位
-		bit := i % 32
-
-		// ni - 补偿
-		ivalue := (item &^ (1<<bit - 1)) >> bit
-		new.store(ni, new.load(ni)|ivalue)
-
-		// 补偿ni-(i>>5+1)
-		if i%32 != 0 {
-			bvalue := item & (1<<bit - 1)
-			bvalue <<= 31 - ((i - 1) % 32)
-			oval := new.load(i - (i>>5 + 1))
-			new.store(i-(i>>5+1), oval|bvalue)
-		}
+func optSameUnFreeze(old, new *entry) {
+	olen := int(old.getLen())
+	for i := 0; i < olen; i++ {
+		item := atomic.LoadUint32(&old.data[i])
+		new.store(i, item&^freezeBit)
 	}
 }

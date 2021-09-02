@@ -47,16 +47,15 @@ type node struct {
 
 func (s *Trends) onceInit(max int) {
 	s.once.Do(func() {
-		var n *node
+		n := newNode(max)
+		atomic.StorePointer(&s.node, unsafe.Pointer(n))
 		if max < 1 {
 			max = int(maximum)
 		}
 		if max > int(maximum) {
 			max = int(maximum)
 		}
-		n = newNode(max)
 		atomic.StoreUint32(&s.max, uint32(max))
-		atomic.StorePointer(&s.node, unsafe.Pointer(n))
 	})
 }
 
@@ -78,22 +77,18 @@ func idxMod31(x uint32) (idx, mod int) {
 
 func newNode(max int) *node {
 	var cap uint32 = uint32(max/31 + 1)
-	if max < 1 {
+	if max < 1 || max > int(maximum) {
 		max = int(maximum)
 		cap = initCap
-	}
-	if max > int(maximum) {
-		max = int(maximum)
-		cap = maximum/31 + 1
 	}
 	return &node{len: 0, cap: cap, data: make([]uint32, cap)}
 }
 
-func (n *node) getLen() uint32     { return atomic.LoadUint32(&n.len) }
-func (n *node) getCap() uint32     { return atomic.LoadUint32(&n.cap) }
-func (s *Trends) getMax() uint32   { return atomic.LoadUint32(&s.max) }
-func (s *Trends) getLen() uint32   { return s.getNode().getLen() }
-func (s *Trends) getCount() uint32 { return atomic.LoadUint32(&s.count) }
+func (n *node) getLen() uint32   { return atomic.LoadUint32(&n.len) }
+func (n *node) getCap() uint32   { return atomic.LoadUint32(&n.cap) }
+func (s *Trends) getMax() uint32 { return atomic.LoadUint32(&s.max) }
+func (s *Trends) getLen() uint32 { return s.getNode().getLen() }
+func (s *Trends) getCap() uint32 { return s.getNode().getCap() }
 
 func (n *node) load(idx int) uint32       { return atomic.LoadUint32(&n.data[idx]) }
 func (n *node) store(idx int, val uint32) { atomic.StoreUint32(&n.data[idx], val) }

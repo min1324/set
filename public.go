@@ -87,19 +87,23 @@ const (
 	rtStatic reflactType = iota + 1
 	rtTrends
 	rtOption
+	rtDynamic
 	rtOther
 
 	// two type relation.
 	rtStaticStatic = rtStatic<<bit | rtStatic
 	rtStaticTrends = rtStatic<<bit | rtTrends
 	rtStaticOption = rtStatic<<bit | rtOption
+
 	rtTrendsStatic = rtTrends<<bit | rtStatic
 	rtTrendsTrends = rtTrends<<bit | rtTrends
 	rtTrendsOption = rtTrends<<bit | rtOption
+
 	rtOptionStatic = rtOption<<bit | rtStatic
 	rtOptionTrends = rtOption<<bit | rtTrends
 	rtOptionOption = rtOption<<bit | rtOption
-	rtOtherSame    = rtOther<<bit | rtOther
+
+	rtOtherSame = rtOther<<bit | rtOther
 
 	// other case is two type not the same or know.
 	// exp: rtOtherNoSame = rtOther<<bit | rtOption
@@ -430,6 +434,7 @@ func Items(s Set) []uint32 {
 // example union,diffrence ...
 type opSet interface {
 	getLen() uint32
+	getCap() uint32
 	getMax() uint32
 	load(int) uint32
 	store(int, uint32)
@@ -732,6 +737,77 @@ func generalCopy(s, t Set) Set {
 	return t
 }
 
+func u32To16(old, new opSet) {
+	ocap := old.getCap()
+	for i := 0; i < int(ocap); i++ {
+		item := old.load(i)
+		if item == 0 {
+			continue
+		}
+		new.store(2*i, item&(1<<16-1))
+		new.store(2*i+1, item>>16)
+	}
+}
+
+func u16To32(old, new opSet) {
+	ocap := old.getCap()
+	for i := 0; i < int(ocap); i++ {
+		item := old.load(i)
+		item &^= freezeBit
+		if item == 0 {
+			continue
+		}
+		new.store(i>>1, new.load(i>>1)|item<<(16*(i&1)))
+	}
+}
+
+func u32To31(old, new opSet) {
+	slen := int(old.getLen())
+	ncap := int(new.getCap())
+	for i := 0; i < slen; i++ {
+		item := old.load(i)
+		// u32 实际存位值
+		ni := i + i/31
+		//有效补偿位
+		bit := i % 31
+		ivalue := item << bit
+		// 去掉bit最高位
+		ivalue &^= freezeBit
+		new.store(ni, new.load(ni)|ivalue)
+
+		if ni+1 < ncap {
+			// 补偿i+(i/31+1)
+			bv := item >> (31 - bit)
+			new.store(ni+1, new.load(ni+1)|bv)
+		}
+	}
+}
+
+func u31To32(old, new opSet) {
+	slen := int(old.getLen())
+	for i := 0; i < slen; i++ {
+		item := old.load(i)
+		// 去掉最高位
+		item &^= freezeBit
+		// u32 实际存位值
+		ni := (i + 1) * 31 / 32
+		//有效补偿位
+		bit := i % 32
+
+		// ni - 补偿
+		ivalue := (item &^ (1<<bit - 1)) >> bit
+		new.store(ni, new.load(ni)|ivalue)
+
+		// 补偿ni-(i>>5+1)
+		if i%32 != 0 {
+			bvalue := item & (1<<bit - 1)
+			bvalue <<= 31 - ((i - 1) % 32)
+			oval := new.load(i - (i>>5 + 1))
+			new.store(i-(i>>5+1), oval|bvalue)
+		}
+	}
+}
+
 func max(x, y int) int {
 	if x > y {
 		return x
@@ -874,7 +950,7 @@ func (s *Option) Static() *Static {
 
 	if old.typ != optEntry32 {
 		ne := newOptEntry32(maxcap)
-		optEvacute(old, ne, maxcap)
+		optEvacuteEntry(old, ne, maxcap)
 		old = ne
 	}
 	var p Static
@@ -893,7 +969,7 @@ func (s *Option) Trends() *Trends {
 
 	if old.typ != optEntry31 {
 		ne := newOptEntry31(maxcap)
-		optEvacute(old, ne, maxcap)
+		optEvacuteEntry(old, ne, maxcap)
 		old = ne
 	}
 	var p Trends
@@ -935,7 +1011,7 @@ func Size(s Set) int {
 	switch r {
 	case StaticType:
 		ss := s.(*Static)
-		size = ss.getCount()
+		size = atomic.LoadUint32(&ss.count)
 		if size == 0 {
 			ss.Range(func(x uint32) bool {
 				size += 1
@@ -945,7 +1021,7 @@ func Size(s Set) int {
 		}
 	case TrendsType:
 		ss := s.(*Trends)
-		size = ss.getCount()
+		size = atomic.LoadUint32(&ss.count)
 		if size == 0 {
 			ss.Range(func(x uint32) bool {
 				size += 1

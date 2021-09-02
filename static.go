@@ -61,7 +61,6 @@ func (s *Static) OnceInit(max int) { s.onceInit(max) }
 // it only execute once time.
 func (s *Static) Init() { s.onceInit(initSize) }
 
-func (s *Static) getCount() uint32  { return atomic.LoadUint32(&s.count) }
 func (s *Static) getLen() uint32    { return atomic.LoadUint32(&s.len) }
 func (s *Static) getCap() uint32    { return atomic.LoadUint32(&s.cap) }
 func (s *Static) getMax() uint32    { return atomic.LoadUint32(&s.max) }
