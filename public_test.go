@@ -378,7 +378,7 @@ func TestToTrends(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := set.ToTrends(tt.args.s); !set.Equal(got, r) {
+			if got := set.ToDynamic(tt.args.s); !set.Equal(got, r) {
 				// t.Errorf("SliceToInt() = %v, want %v", got, r)
 				var i uint32 = 0
 				got.Range(func(x uint32) bool {

@@ -12,11 +12,9 @@ import (
 
 var (
 	// reflact.typeof Static
-	StaticType = reflect.TypeOf(new(Static))
-	// reflact.typeof Trends
-	TrendsType = reflect.TypeOf(new(Dynamic))
-	// reflact.typeof Option
-	// OptionType = reflect.TypeOf(new(Option))
+	staticType = reflect.TypeOf(new(Static))
+	// reflact.typeof Dynamic
+	dynamicType = reflect.TypeOf(new(Dynamic))
 )
 
 // String returns the set as a string of the form "{1 2 3}".
@@ -182,9 +180,9 @@ func getReflectType(s, t Set) (r reflactType) {
 	rtt := reflect.TypeOf(t)
 	var ss reflactType
 	switch rts {
-	case StaticType:
+	case staticType:
 		ss = rtStatic
-	case TrendsType:
+	case dynamicType:
 		ss = rtDynamic
 	// case OptionType:
 	// 	ss = rtOption
@@ -193,9 +191,9 @@ func getReflectType(s, t Set) (r reflactType) {
 	}
 	var tt reflactType
 	switch rtt {
-	case StaticType:
+	case staticType:
 		tt = rtStatic
-	case TrendsType:
+	case dynamicType:
 		tt = rtDynamic
 	// case OptionType:
 	// 	tt = rtOption
@@ -300,13 +298,13 @@ func Equal(s, t Set) bool {
 func Copy(s Set) Set {
 	r := reflect.TypeOf(s)
 	switch r {
-	case StaticType:
+	case staticType:
 		ss := s.(*Static)
 		var p Static
 		p.OnceInit(int(ss.getMax()))
 		sameTypeCopy(ss, &p)
 		return &p
-	case TrendsType:
+	case dynamicType:
 		ss := s.(*Dynamic)
 		var p Dynamic
 		p.OnceInit(int(ss.getMax()))
@@ -325,10 +323,10 @@ func Items(s Set) []uint32 {
 	var slen uint32 = 0
 	r := reflect.TypeOf(s)
 	switch r {
-	case StaticType:
+	case staticType:
 		ss := s.(*Static)
 		slen = ss.getLen()
-	case TrendsType:
+	case dynamicType:
 		ss := s.(*Dynamic)
 		slen = ss.getEntry().getLen()
 	// case OptionType:
@@ -704,9 +702,9 @@ func caculateCap(old, cap uint32) uint32 {
 func ToStatic(s Set) *Static {
 	rt := reflect.TypeOf(s)
 	switch rt {
-	case StaticType:
+	case staticType:
 		return s.(*Static)
-	case TrendsType:
+	case dynamicType:
 		ss := s.(*Dynamic)
 		return trendsToStatic(ss)
 	// case OptionType:
@@ -725,16 +723,16 @@ func ToStatic(s Set) *Static {
 	}
 }
 
-// ToTrends convert Set to Trends set
+// ToDynamic convert Set to Trends set
 // if set if Trends,return ptr.
 // or return a copy with set.
-func ToTrends(s Set) *Dynamic {
+func ToDynamic(s Set) *Dynamic {
 	rt := reflect.TypeOf(s)
 	switch rt {
-	case StaticType:
+	case staticType:
 		ss := s.(*Static)
 		return staticToTrends(ss)
-	case TrendsType:
+	case dynamicType:
 		return s.(*Dynamic)
 	// case OptionType:
 	// 	ss := s.(*Option)
@@ -914,7 +912,7 @@ func Size(s Set) int {
 	r := reflect.TypeOf(s)
 	var size uint32
 	switch r {
-	case StaticType:
+	case staticType:
 		ss := s.(*Static)
 		size = atomic.LoadUint32(&ss.count)
 		if size == 0 {
@@ -924,7 +922,7 @@ func Size(s Set) int {
 			})
 			atomic.CompareAndSwapUint32(&ss.count, 0, size)
 		}
-	case TrendsType:
+	case dynamicType:
 		ss := s.(*Dynamic)
 		e := ss.getEntry()
 		size = atomic.LoadUint32(&e.count)
@@ -949,7 +947,7 @@ func Size(s Set) int {
 func Clear(s Set) {
 	r := reflect.TypeOf(s)
 	switch r {
-	case StaticType:
+	case staticType:
 		ss := s.(*Static)
 		slen := ss.getLen()
 		for i := 0; i < int(slen); i++ {
@@ -957,7 +955,7 @@ func Clear(s Set) {
 		}
 		atomic.StoreUint32(&ss.count, 0)
 		atomic.CompareAndSwapUint32(&ss.len, slen, 0)
-	case TrendsType:
+	case dynamicType:
 		ss := s.(*Dynamic)
 		for {
 			n := ss.getEntry()
