@@ -1,8 +1,6 @@
 package set
 
 import (
-	"bytes"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -157,22 +155,6 @@ type dynEntry struct {
 	len    uint32   // len(data)
 	cap    uint32   // cap(data)
 	data   []uint32 // when evacuting,can't store nor delete.
-}
-
-// String returns the set as a string of the form "{1 2 3}".
-// use for fmt.Print
-func (e *dynEntry) String() string {
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	e.walk(func(x uint32) bool {
-		if buf.Len() > len("{") {
-			buf.WriteByte(' ')
-		}
-		fmt.Fprintf(&buf, "%d", x)
-		return true
-	})
-	buf.WriteByte('}')
-	return buf.String()
 }
 
 func newNode(max uint32) *dynEntry {
