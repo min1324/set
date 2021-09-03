@@ -203,7 +203,7 @@ func TestInit(t *testing.T) {
 			if s.Load(55) {
 				t.Fatalf("delete exist err:%d", 55)
 			}
-			s.Delete(35)
+			set.Removes(s, 35)
 			if s.Load(35) {
 				t.Fatalf("delete exist err:%d", 55)
 			}

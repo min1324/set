@@ -274,6 +274,7 @@ func TestEqual(t *testing.T) {
 func TestCopy(t *testing.T) {
 	cap := 100
 	arg := make([]uint32, cap)
+	m := getMutexSet(cap, 0, cap)
 	for i := 0; i < cap; i++ {
 		arg[i] = uint32(i)
 	}
@@ -300,12 +301,23 @@ func TestCopy(t *testing.T) {
 			},
 			want: set.NewDynamic(cap, arg...),
 		},
+		{
+			name: "NewTrends",
+			args: args{
+				s: m,
+			},
+			want: m,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := set.Copy(tt.args.s); !set.Equal(got, tt.want) {
+			got := set.Copy(tt.args.s)
+			if !set.Equal(got, tt.want) {
 				miss := miss(tt.want, got)
 				t.Errorf("%s miss:%v ", tt.name, fmt.Sprintf("%v ", miss))
+			}
+			if set.Size(got) != set.Size(tt.want) {
+				t.Errorf("got:%d want:%d ", set.Size(got), set.Size(tt.want))
 			}
 		})
 	}
@@ -313,14 +325,11 @@ func TestCopy(t *testing.T) {
 
 func TestToStatic(t *testing.T) {
 	cap := 100
-	var s set.Dynamic
-	s.OnceInit(cap)
-	for i := 0; i < cap; i++ {
-		s.Store(uint32(i))
-	}
-	r := set.Copy(&s)
+	s := getDynamic(cap, 0, cap)
+	m := getMutexSet(cap, 0, cap)
+	r := set.Copy(s)
 	type args struct {
-		s *set.Dynamic
+		s set.Set
 	}
 	tests := []struct {
 		name string
@@ -329,9 +338,15 @@ func TestToStatic(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 		{
-			name: "",
+			name: "dynamicToStatic",
 			args: args{
-				s: &s,
+				s: s,
+			},
+		},
+		{
+			name: "mutexToStatic",
+			args: args{
+				s: m,
 			},
 		},
 	}
@@ -354,14 +369,11 @@ func TestToStatic(t *testing.T) {
 
 func TestToTrends(t *testing.T) {
 	cap := 1000
-	var s set.Static
-	s.OnceInit(cap)
-	for i := 0; i < cap; i++ {
-		s.Store(uint32(i))
-	}
-	r := set.Copy(&s)
+	s := getStatic(cap, 0, cap)
+	m := getMutexSet(cap, 0, cap)
+	r := set.Copy(s)
 	type args struct {
-		s *set.Static
+		s set.Set
 	}
 	tests := []struct {
 		name string
@@ -370,9 +382,15 @@ func TestToTrends(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 		{
-			name: "",
+			name: "staticToDynamic",
 			args: args{
-				s: &s,
+				s: s,
+			},
+		},
+		{
+			name: "mutexToDynamic",
+			args: args{
+				s: m,
 			},
 		},
 	}
@@ -525,6 +543,7 @@ func TestSize(t *testing.T) {
 }
 
 func TestClear(t *testing.T) {
+	s := set.New(20, 1, 2, 3, 4)
 	type args struct {
 		s set.Set
 	}
@@ -533,6 +552,12 @@ func TestClear(t *testing.T) {
 		args args
 	}{
 		// TODO: Add test cases.
+		{
+			name: "new",
+			args: args{
+				s: s,
+			},
+		},
 		{
 			name: "getStatic",
 			args: args{
@@ -543,6 +568,12 @@ func TestClear(t *testing.T) {
 			name: "getTrends",
 			args: args{
 				s: getDynamic(100, 10, 20),
+			},
+		},
+		{
+			name: "getTrends",
+			args: args{
+				s: getMutexSet(20, 1, 10),
 			},
 		},
 	}
