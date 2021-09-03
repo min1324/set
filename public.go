@@ -711,10 +711,14 @@ func ToStatic(s Set) *Static {
 	// 	ss := s.(*Option)
 	// 	return ss.Static()
 	default:
+		var ss Static
+
 		array := items(s)
 		slen := len(array)
+		if slen == 0 {
+			return &ss
+		}
 		smax := array[slen-1]
-		var ss Static
 		ss.OnceInit(int(smax))
 		for i := 0; i < slen; i++ {
 			ss.Store(array[i])
@@ -734,15 +738,14 @@ func ToDynamic(s Set) *Dynamic {
 		return staticToTrends(ss)
 	case dynamicType:
 		return s.(*Dynamic)
-	// case OptionType:
-	// 	ss := s.(*Option)
-	// 	return ss.Trends()
 	default:
+		var ss Dynamic
+		ss.OnceInit(0)
 		array := items(s)
 		slen := len(array)
-		smax := array[slen-1]
-		var ss Dynamic
-		ss.OnceInit(int(smax))
+		if slen == 0 {
+			return &ss
+		}
 		for i := 0; i < slen; i++ {
 			ss.Store(array[i])
 		}
